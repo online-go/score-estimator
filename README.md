@@ -1,4 +1,4 @@
-# About
+# About 
 
 This repository contains the source code used for the score estimator and dead
 stone removal suggester on online-go.com.
