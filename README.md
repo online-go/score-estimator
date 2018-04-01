@@ -10,7 +10,7 @@ C++, we compile it to JavaScript using
 the browser.
 
 
-# Developing
+# Developing 
 
 For development and debugging, the c++ code can be compiled into a simple
 executable that loads and scores games provided on the command line.
