@@ -82,7 +82,7 @@ Time elapsed: 498.653250 ms
 ```
 
 with `o` being black, `_` being white, showing how the estimator decided to
-fill and assign territory.
+fill and assign territory. 
 
 
 
