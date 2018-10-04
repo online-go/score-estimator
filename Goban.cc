@@ -465,6 +465,7 @@ void Goban::clearBoard() {
 
 
 #ifdef DEBUG
+/*
 void Goban::print() {
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
@@ -473,9 +474,10 @@ void Goban::print() {
         printf("\n");
     }
 }
+*/
 
 
-void Goban::showBoard() {
+void Goban::showBoard(unsigned char black, unsigned char white, unsigned char blank) {
     printf("    ");
     for (int x=0; x < width; ++x) {
         printf("%c ", board_letters[x]);
@@ -492,7 +494,7 @@ void Goban::showBoard() {
     for (int y=0; y < height; ++y) {
         printf("%2d|", 19-y);
         for (int x=0; x < width; ++x) {
-            printf(" %c", board[y][x] == 0 ? '.' : (board[y][x] == 1 ? 'X' : 'O'));
+            printf(" %c", board[y][x] == 0 ? blank : (board[y][x] == 1 ? black: white));
         }
         printf(" |%-2d\n", 19-y);
     }

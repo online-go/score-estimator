@@ -43,9 +43,7 @@ class Goban {
 
 #ifdef DEBUG
     public:
-        void print();
+        void showBoard(unsigned char black='X', unsigned char white='o', unsigned char blank='.');
         Point pointFromStr(const char *str);
-        void showBoard();
 #endif
 };
-

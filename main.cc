@@ -104,10 +104,12 @@ int main(int argn, const char *args[]) {
             printf(" height: %d\n", goban.height);
             printf(" width: %d\n", goban.width);
             printf(" player to move: %d\n", player_to_move);
-            goban.print();
-            est.print();
-            printf("\n\n");
-            errors.print();
+            printf("\n");
+            goban.showBoard('X', 'o', '.');
+            printf("\n");
+            est.showBoard('#', '_', '.');
+            printf("\n");
+            errors.showBoard('E', 'E', '.');
             ++num_errors;
         } else {
             printf("### PASS %s [%ld ms]\n", args[arg], elapsed);
