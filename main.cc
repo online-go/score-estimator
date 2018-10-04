@@ -27,6 +27,7 @@ int main(int argn, const char *args[]) {
     }
 
     int num_errors = 0;
+    int num_passes = 0;
 
     for (int arg=1; arg < argn; ++arg) {
         if (strstr(args[arg], "help")) {
@@ -107,21 +108,24 @@ int main(int argn, const char *args[]) {
             printf("\n");
             goban.showBoard('X', 'o', '.');
             printf("\n");
+            removal.showBoard('r', 'o', '.');
+            printf("\n");
             est.showBoard('#', '_', '.');
             printf("\n");
             errors.showBoard('E', 'E', '.');
             ++num_errors;
         } else {
             printf("### PASS %s [%ld ms]\n", args[arg], elapsed);
+            ++num_passes;
         }
     }
 
     printf("\n");
     printf("###\n");
     if (num_errors) {
-        printf("### %d failures\n", num_errors);
+        printf("### %d passes %d failures\n", num_passes, num_errors);
     } else {
-        printf("### ALL TESTS PASSED!\n");
+        printf("### ALL %d TESTS PASSED!\n", num_passes);
     }
     printf("###\n");
     printf("\n");
@@ -149,7 +153,7 @@ Goban check_stone_removal(const Goban &goban, const Goban &est, const Goban &rem
                     /* not dame, will assume it's correctly filled in with appropriate territory then */
                 } else {
                     /* non removed stone, make sure it didn't change */
-                    errors.board[y][x] = goban.board[y][x] == - est.board[y][x];
+                    errors.board[y][x] = goban.board[y][x] != est.board[y][x];
                 }
             }
         }
