@@ -1,5 +1,4 @@
 VERSION=1.0
-OBJ=estimator.o
 cxx=g++ -O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1
 
 EMCC_FLAGS=-s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" --memory-init-file 0
@@ -24,11 +23,8 @@ js:
 	@echo Compressed: `wc -c score_estimator.js.gz | awk '{print $$1}'` bytes
 	@echo
 
-estimator.o: estimator.cc estimator.h Makefile
-	$(cxx) -c estimator.cc
-
-estimator: $(OBJ) main.cc
-	$(cxx) main.cc $(OBJ) -o estimator
+estimator: main.cc Goban.cc *.h Makefile
+	$(cxx) main.cc Goban.cc -o estimator
 
 grind: build
 	valgrind --tool=cachegrind ./estimator  test_games/*.game

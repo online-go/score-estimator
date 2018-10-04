@@ -1,4 +1,7 @@
 #define DEBUG 1
+
+#include "Goban.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,10 +9,8 @@
 #include <ctime>
 #include <stdio.h>
 #include <string.h>
-#include "estimator.h"
 #include <chrono>
 
-using namespace score_estimator;
 using namespace std;
 
 Goban check_stone_removal(const Goban &goban, const Goban &est, const Goban &removal);
@@ -83,7 +84,6 @@ int main(int argn, const char *args[]) {
                 removal.board[y][x] = scan1(fp, "%d");
             }
         }
-
 
 
         auto start = chrono::high_resolution_clock::now();

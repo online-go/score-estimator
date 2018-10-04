@@ -1,5 +1,5 @@
 /* vim: set tabstop=4 expandtab */
-#include "estimator.h"
+#include "Goban.h"
 #ifndef EMSCRIPTEN
 #  include <string.h>
 #  include <stdlib.h>
@@ -10,24 +10,17 @@
 #  include <ctype.h>
 #  include <stdlib.h>
 #  include <iostream>
-#  include <boost/algorithm/string.hpp>
+
+using namespace std; 
 #endif
 
-#define MAX(a,b) ((a) < (b) ? (b) : (a))
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-namespace score_estimator {
 
 static Goban visited;
 static int   last_visited_counter = 1;
-#ifdef DEBUG
-static const char board_letters[] = "abcdefghjklmnopqrstuvwxyz";
-#endif
 
 
-Goban::Goban() {
-    width = 19;
-    height = 19;
+Goban::Goban() : width(19), height(19) {
     memset(board, 0, sizeof(board));
     init();
 }
@@ -282,7 +275,7 @@ void Goban::get_neighbors(const Point &pt, NeighborVec &output) {
 }
 
 
-Result Goban::place_and_remove(Point move, Color player, Vec &possible_moves) {
+Goban::Result Goban::place_and_remove(Point move, Color player, Vec &possible_moves) {
     if (do_ko_check) {
         if (move == possible_ko) {
             return ILLEGAL;
@@ -535,18 +528,4 @@ Point Goban::pointFromStr(const char *str) {
 }
 
 
-ostream& operator<<(ostream &o, const Point &pt) {
-    if (pt.x >= 0) {
-        o << board_letters[pt.x] << 19 - pt.y;
-    }
-    if (pt.x == -1) {
-        o << "pass";
-    }
-    if (pt.x == -100) {
-        o << "resign";
-    }
-    return o;
-}
 #endif
-
-} /* namespace score_estimator */

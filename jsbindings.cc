@@ -2,9 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "estimator.cc"
-
-using namespace score_estimator;
+#include "Goban.cc"
 
 extern "C" int estimate(int width, int height, int *data, int player_to_move, int trials, float tolerance) {
     Goban g;
