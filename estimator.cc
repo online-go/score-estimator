@@ -549,4 +549,4 @@ ostream& operator<<(ostream &o, const Point &pt) {
 }
 #endif
 
-} /* namespace baduk */
+} /* namespace score_estimator */
