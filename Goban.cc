@@ -14,29 +14,31 @@
 using namespace std; 
 #endif
 
+#ifdef EMSCRIPTEN
+#  define THREAD_LOCAL
+#else
+#  define THREAD_LOCAL thread_local
+#endif
 
 
-static Goban visited;
-static int   last_visited_counter = 1;
+THREAD_LOCAL static Goban visited;
+THREAD_LOCAL static int   last_visited_counter = 1;
 
 
-Goban::Goban() : width(19), height(19) {
-    memset(board, 0, sizeof(board));
+Goban::Goban() 
+    : width(19)
+    , height(19) 
+{
     init();
 }
 
-
-Goban::Goban(const Goban &other) {
-    width = other.width;
-    height = other.height;
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            board[y][x] = other.board[y][x];
-        }
-    }
+Goban::Goban(const Goban &other) 
+    : width(other.width)
+    , height(other.height)
+    , board(other.board) 
+{
     init();
 }
-
 
 void Goban::init() {
     do_ko_check = 0;;
@@ -46,11 +48,10 @@ void Goban::init() {
 
 Goban Goban::estimate(Color player_to_move, int trials, float tolerance) {
     Goban ret(*this);
-    int   track[MAX_HEIGHT][MAX_WIDTH];
+    Grid<int> track;
 
     do_ko_check = 0;;
     possible_ko = Point(-1,-1);
-    memset(track, 0, sizeof(track));
 
     for (int i=0; i < trials; ++i) {
         /* Play out a random game */
@@ -132,7 +133,7 @@ Goban Goban::estimate(Color player_to_move, int trials, float tolerance) {
 }
 
 
-void Goban::synchronize_tracking_counters(int track[MAX_HEIGHT][MAX_WIDTH], Goban &visited, Point &p) {
+void Goban::synchronize_tracking_counters(Grid<int> &track, Goban &visited, Point &p) {
     Vec         tocheck;
     NeighborVec neighbors;
     int         my_color        = (*this)[p];
@@ -458,7 +459,7 @@ void Goban::setSize(int width, int height) {
 
 
 void Goban::clearBoard() {
-    memset(board, 0, sizeof(board));
+    board.clear();
 }
 
 

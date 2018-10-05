@@ -1,6 +1,16 @@
 #define DEBUG 1
 
+#ifndef USE_THREADS
+/* Threads actually seem to slow things down a lot, even with only 2 threads
+ * running. This might not be true on all machines though, so i'll leave it
+ * here for future exploration */
+#  define USE_THREADS 0
+#endif
+
 #include "Goban.h"
+#if USE_THREADS
+#  include "ThreadPool.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -10,15 +20,29 @@
 #include <stdio.h>
 #include <string.h>
 #include <chrono>
+#include <iostream>
+#include <vector>
 
 using namespace std;
+
 
 Goban check_stone_removal(const Goban &goban, const Goban &est, const Goban &removal);
 int scan1(FILE *fp, const char *fmt);
 
+struct Result {
+    const char *filename;
+    int errct;
+    int player_to_move;
+    Goban goban;
+    Goban removal;
+    Goban est;
+    Goban errors;
+    long elapsed;
+};
+
 int main(int argn, const char *args[]) {
     srand(time(NULL));
-    int trials = 1000;
+    int trials = 10000;
     float tolerance = 0.35f;
 
     if (argn < 2) {
@@ -28,6 +52,11 @@ int main(int argn, const char *args[]) {
 
     int num_errors = 0;
     int num_passes = 0;
+
+#if USE_THREADS
+    int num_threads = std::thread::hardware_concurrency() / 2;
+#endif
+
 
     for (int arg=1; arg < argn; ++arg) {
         if (strstr(args[arg], "help")) {
@@ -41,84 +70,134 @@ int main(int argn, const char *args[]) {
                     fprintf(stderr, "Invalid value for tolerance\n");
                     return -2;
                 }
-                printf("Tolerance: %f\n", tolerance);
             } else {
                 trials = atol(args[arg]);
                 if (trials < 1) {
                     fprintf(stderr, "Invalid value for trials\n");
                     return -2;
                 }
-                printf("Trials: %d\n", trials);
             }
 
             continue;
         }
+    }
 
 
-        FILE *fp = fopen(args[arg], "r");
-        if (!fp) {
-            fprintf(stderr, "Failed to open file %s\n", args[arg]);
-            return -1;
+    printf("###\n");
+#if USE_THREADS
+    printf("### Using %d threads\n", num_threads);
+#endif
+    printf("### Trials per test: %d\n", trials);
+    printf("### Scoring tolerance: %.4f\n", tolerance);
+    printf("###\n");
+    printf("\n");
+
+#if USE_THREADS
+    ThreadPool tp(num_threads);
+    vector<future<Result>> results;
+#else
+    vector<Result> results;
+#endif
+
+    for (int arg=1; arg < argn; ++arg) {
+        if (!strstr(args[arg], "game")) {
+            continue;
         }
 
-        char buf[256];
-        if (!fgets(buf, sizeof(buf), fp) || buf[0] != '#') {
-            fprintf(stderr, "Invalid game file\n");
-            return -1;
-        }
+#if USE_THREADS
+        results.push_back(tp.enqueue([args, arg, trials, tolerance]() -> Result {
+#endif
+            Result result;
 
-        int player_to_move;
-        Goban goban;
-        Goban removal;
-        removal.height = goban.height = scan1(fp, "height %d\n");
-        removal.width  = goban.width  = scan1(fp, "width %d\n");
-        player_to_move = scan1(fp, "player_to_move %d\n");
+            result.filename = args[arg];
 
-        for (int y=0; y < goban.height; ++y) {
-            for (int x=0; x < goban.width; ++x) {
-                goban.board[y][x] = scan1(fp, "%d");
+            FILE *fp = fopen(args[arg], "r");
+            if (!fp) {
+                fprintf(stderr, "Failed to open file %s\n", result.filename);
+                throw runtime_error("Failed to open input file");
             }
-        }
 
-        for (int y=0; y < removal.height; ++y) {
-            for (int x=0; x < removal.width; ++x) {
-                removal.board[y][x] = scan1(fp, "%d");
+            char buf[256];
+            if (!fgets(buf, sizeof(buf), fp) || buf[0] != '#') {
+                fprintf(stderr, "Invalid game file\n");
+                throw runtime_error("Invalid game file");
             }
-        }
 
+            result.removal.height = result.goban.height = scan1(fp, "height %d\n");
+            result.removal.width  = result.goban.width  = scan1(fp, "width %d\n");
+            result.player_to_move = scan1(fp, "player_to_move %d\n");
 
-        auto start = chrono::high_resolution_clock::now();
-        Goban est = goban.estimate(WHITE, trials, tolerance);
-        auto stop = chrono::high_resolution_clock::now();
-        auto elapsed = chrono::duration_cast<chrono::milliseconds>(stop - start).count();
-
-        Goban errors = check_stone_removal(goban, est, removal);
-        int errct = 0;
-        for (int y=0; y < removal.height; ++y) {
-            for (int x=0; x < removal.width; ++x) {
-                errct += errors.board[y][x];
+            if (result.player_to_move != 1 && result.player_to_move != -1) {
+                throw runtime_error("Invalid player to move");
             }
-        }
 
-        if (errct) {
-            printf("### ERROR %s had %d incorrectly scored points [%ld ms]\n", args[arg], errct, elapsed);
-            printf(" height: %d\n", goban.height);
-            printf(" width: %d\n", goban.width);
-            printf(" player to move: %d\n", player_to_move);
+            for (int y=0; y < result.goban.height; ++y) {
+                for (int x=0; x < result.goban.width; ++x) {
+                    result.goban.board[y][x] = scan1(fp, "%d");
+                }
+            }
+
+            for (int y=0; y < result.removal.height; ++y) {
+                for (int x=0; x < result.removal.width; ++x) {
+                    result.removal.board[y][x] = scan1(fp, "%d");
+                }
+            }
+
+            fclose(fp);
+
+            auto start = chrono::high_resolution_clock::now();
+            //result.est = result.goban.estimate(WHITE, trials, tolerance);
+            result.est = result.goban.estimate(result.player_to_move == 1 ? BLACK : WHITE, trials, tolerance);
+            auto stop = chrono::high_resolution_clock::now();
+            result.elapsed = chrono::duration_cast<chrono::milliseconds>(stop - start).count();
+
+            result.errors = check_stone_removal(result.goban, result.est, result.removal);
+            result.errct = 0;
+            for (int y=0; y < result.removal.height; ++y) {
+                for (int x=0; x < result.removal.width; ++x) {
+                    result.errct += result.errors.board[y][x];
+                }
+            }
+
+#if USE_THREADS
+            return result;
+        }));
+#else
+        results.push_back(result);
+#endif
+
+
+
+    }
+
+    for (auto &res_future : results) {
+#if USE_THREADS
+        res_future.wait();
+        Result result = res_future.get();
+#else
+        Result result = res_future;
+#endif
+
+        if (result.errct) {
+            printf("### ERROR %s had %d incorrectly scored points [%ld ms]\n", result.filename, result.errct, result.elapsed);
+            printf(" height: %d\n", result.goban.height);
+            printf(" width: %d\n", result.goban.width);
+            printf(" player to move: %d\n", result.player_to_move);
             printf("\n");
-            goban.showBoard('X', 'o', '.');
+            result.goban.showBoard('X', 'o', '.');
             printf("\n");
-            removal.showBoard('r', 'o', '.');
+            result.removal.showBoard('r', 'o', '.');
             printf("\n");
-            est.showBoard('#', '_', '.');
+            result.est.showBoard('#', '_', '.');
             printf("\n");
-            errors.showBoard('E', 'E', '.');
+            result.errors.showBoard('E', 'E', '.');
             ++num_errors;
         } else {
-            printf("### PASS %s [%ld ms]\n", args[arg], elapsed);
+            printf("### PASS %s [%ld ms]\n", result.filename, result.elapsed);
             ++num_passes;
         }
     }
+
 
     printf("\n");
     printf("###\n");

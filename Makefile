@@ -1,15 +1,16 @@
 VERSION=1.0
-cxx=g++ -O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1
+CXX=g++
+CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -lpthread
 
 EMCC_FLAGS=-s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" --memory-init-file 0
 
-all build: estimator
+all build: run_estimator_tests
 
 test: build
-	./estimator test_games/12508083.game
+	./run_estimator_tests test_games/hard/12508083.game
 
-test-all: build
-	./estimator test_games/*.game
+tests:
+	./run_estimator_tests test_games/*/*.game
 
 js-debug:
 	emcc $(EMCC_FLAGS) -s DEMANGLE_SUPPORT=1 -s ASSERTIONS=2 -O1 -g3 jsbindings.cc -o score_estimator.js
@@ -23,11 +24,11 @@ js:
 	@echo Compressed: `wc -c score_estimator.js.gz | awk '{print $$1}'` bytes
 	@echo
 
-estimator: main.cc Goban.cc *.h Makefile
-	$(cxx) main.cc Goban.cc -o estimator
+run_estimator_tests: main.cc Goban.cc *.h Makefile
+	$(CXX) $(CXXFLAGS) main.cc Goban.cc -o run_estimator_tests
 
 grind: build
-	valgrind --tool=cachegrind ./estimator  test_games/*.game
+	valgrind --tool=cachegrind ./run_estimator_tests  test_games/*/*.game
 
 clean:
-	rm -f estimator *.o *.js
+	rm -f run_estimator_tests *.o *.js

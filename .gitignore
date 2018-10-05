@@ -28,4 +28,4 @@
 *.app
 
 tools/*.game
-estimator
+run_estimator_tests
