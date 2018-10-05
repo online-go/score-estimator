@@ -14,20 +14,13 @@
 using namespace std; 
 #endif
 
-#ifdef EMSCRIPTEN
-#  define THREAD_LOCAL
-#else
-#  define THREAD_LOCAL thread_local
-#endif
-
-
-THREAD_LOCAL static Goban visited;
-THREAD_LOCAL static int   last_visited_counter = 1;
-
 
 Goban::Goban() 
     : width(19)
     , height(19) 
+    , board(width, height) 
+    , global_visited(width, height) 
+    , last_visited_counter(1)
 {
     init();
 }
@@ -36,6 +29,8 @@ Goban::Goban(const Goban &other)
     : width(other.width)
     , height(other.height)
     , board(other.board) 
+    , global_visited(other.global_visited) 
+    , last_visited_counter(other.last_visited_counter)
 {
     init();
 }
@@ -48,7 +43,7 @@ void Goban::init() {
 
 Goban Goban::estimate(Color player_to_move, int trials, float tolerance) {
     Goban ret(*this);
-    Grid<int> track;
+    Grid<int> track(width, height);
 
     do_ko_check = 0;;
     possible_ko = Point(-1,-1);
@@ -177,7 +172,7 @@ bool Goban::is_territory(Point pt, Color player) {
     int         visited_counter = ++last_visited_counter;
 
     tocheck.push(pt);
-    visited[pt] = visited_counter;
+    global_visited[pt] = visited_counter;
 
     while (tocheck.size) {
         Point p = tocheck.remove(0);
@@ -185,8 +180,8 @@ bool Goban::is_territory(Point pt, Color player) {
             get_neighbors(p, neighbors);
             for (int i=0; i < neighbors.size; ++i) {
                 Point neighbor = neighbors[i];
-                if (visited[neighbor] == visited_counter) continue;
-                visited[neighbor] = visited_counter;
+                if (global_visited[neighbor] == visited_counter) continue;
+                global_visited[neighbor] = visited_counter;
                 tocheck.push(neighbor);
             }
         } else {
@@ -206,7 +201,7 @@ void Goban::fill_territory(Point pt, Color player) {
     int         visited_counter = ++last_visited_counter;
 
     tocheck.push(pt);
-    visited[pt] = visited_counter;
+    global_visited[pt] = visited_counter;
 
     while (tocheck.size) {
         Point p = tocheck.remove(0);
@@ -215,8 +210,8 @@ void Goban::fill_territory(Point pt, Color player) {
             get_neighbors(p, neighbors);
             for (int i=0; i < neighbors.size; ++i) {
                 Point neighbor = neighbors[i];
-                if (visited[neighbor] == visited_counter) continue;
-                visited[neighbor] = visited_counter;
+                if (global_visited[neighbor] == visited_counter) continue;
+                global_visited[neighbor] = visited_counter;
                 tocheck.push(neighbor);
             }
         }
@@ -296,7 +291,7 @@ Goban::Result Goban::place_and_remove(Point move, Color player, Vec &possible_mo
             if (
                 /* it's common that a previous has_liberties covers what we're
                  * about to test, so don't double test */
-                visited[neighbors[i]] != last_visited_counter
+                global_visited[neighbors[i]] != last_visited_counter
                 && !has_liberties(neighbors[i])
             ) {
                 if (remove_group(neighbors[i], possible_moves) == 1) {
@@ -330,7 +325,7 @@ bool Goban::has_liberties(const Point &pt) {
     int my_visited_counter = ++last_visited_counter;
 
     tocheck.push(pt);
-    visited[pt] = my_visited_counter;
+    global_visited[pt] = my_visited_counter;
 
     while (tocheck.size) {
         Point p = tocheck.remove(tocheck.size-1);
@@ -343,8 +338,8 @@ bool Goban::has_liberties(const Point &pt) {
             if (c == 0) {
                 return true;
             }
-            if (c == my_color && visited.board[neighbor.y][neighbor.x] != my_visited_counter) {
-                visited.board[neighbor.y][neighbor.x] = my_visited_counter;
+            if (c == my_color && global_visited[neighbor.y][neighbor.x] != my_visited_counter) {
+                global_visited[neighbor.y][neighbor.x] = my_visited_counter;
                 ++tocheck.size;
             }
         }
@@ -356,8 +351,8 @@ bool Goban::has_liberties(const Point &pt) {
             if (c == 0) {
                 return true;
             }
-            if (c == my_color && visited.board[neighbor.y][neighbor.x] != my_visited_counter) {
-                visited.board[neighbor.y][neighbor.x] = my_visited_counter;
+            if (c == my_color && global_visited[neighbor.y][neighbor.x] != my_visited_counter) {
+                global_visited[neighbor.y][neighbor.x] = my_visited_counter;
                 ++tocheck.size;
             }
         }
@@ -369,8 +364,8 @@ bool Goban::has_liberties(const Point &pt) {
             if (c == 0) {
                 return true;
             }
-            if (c == my_color && visited.board[neighbor.y][neighbor.x] != my_visited_counter) {
-                visited.board[neighbor.y][neighbor.x] = my_visited_counter;
+            if (c == my_color && global_visited[neighbor.y][neighbor.x] != my_visited_counter) {
+                global_visited[neighbor.y][neighbor.x] = my_visited_counter;
                 ++tocheck.size;
             }
         }
@@ -382,8 +377,8 @@ bool Goban::has_liberties(const Point &pt) {
             if (c == 0) {
                 return true;
             }
-            if (c == my_color && visited.board[neighbor.y][neighbor.x] != my_visited_counter) {
-                visited.board[neighbor.y][neighbor.x] = my_visited_counter;
+            if (c == my_color && global_visited[neighbor.y][neighbor.x] != my_visited_counter) {
+                global_visited[neighbor.y][neighbor.x] = my_visited_counter;
                 ++tocheck.size;
             }
         }
@@ -462,73 +457,3 @@ void Goban::clearBoard() {
     board.clear();
 }
 
-
-
-
-#ifdef DEBUG
-/*
-void Goban::print() {
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            printf("%c ", board[y][x] == -1 ? '_' : (board[y][x] == 1 ? 'o' : ' '));
-        }
-        printf("\n");
-    }
-}
-*/
-
-
-void Goban::showBoard(unsigned char black, unsigned char white, unsigned char blank) {
-    printf("    ");
-    for (int x=0; x < width; ++x) {
-        printf("%c ", board_letters[x]);
-    }
-    printf("  \n");
-
-    printf("  ");
-    for (int x=0; x <= width; ++x) {
-        printf("%c", x == 0 ? '+' : '-');
-        printf("%c", '-');
-    }
-    printf("+  \n");
-
-    for (int y=0; y < height; ++y) {
-        printf("%2d|", 19-y);
-        for (int x=0; x < width; ++x) {
-            printf(" %c", board[y][x] == 0 ? blank : (board[y][x] == 1 ? black: white));
-        }
-        printf(" |%-2d\n", 19-y);
-    }
-
-    printf("  ");
-    for (int x=0; x <= width; ++x) {
-        printf("%c", x == 0 ? '+' : '-');
-        printf("%c", '-');
-    }
-    printf("+  \n");
-
-    printf("    ");
-    for (int x=0; x < width; ++x) {
-        printf("%c ", board_letters[x]);
-    }
-    printf("  \n");
-}
-
-
-Point Goban::pointFromStr(const char *str) {
-    int x=-1, y=-1;
-    if (tolower(str[0]) == 'p' && tolower(str[1]) == 'a')  { x=y=-1; return Point(x,y); } /* pass */
-    if (tolower(str[0]) == 'r' && tolower(str[1]) == 'e')  { x=y=-100; return Point(x,y); } /* resign */
-
-    x = index(board_letters, tolower(str[0])) - board_letters;
-    y = height-atoi(str+1);
-
-    if (x < 0 || y < 0 || x >= width || y >= height) {
-        throw "Invalid vertex";
-    }
-
-    return Point(x,y);
-}
-
-
-#endif

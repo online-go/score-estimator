@@ -1,12 +1,5 @@
 #define DEBUG 1
 
-#ifndef USE_THREADS
-/* Threads actually seem to slow things down a lot, even with only 2 threads
- * running. This might not be true on all machines though, so i'll leave it
- * here for future exploration */
-#  define USE_THREADS 0
-#endif
-
 #include "Goban.h"
 #if USE_THREADS
 #  include "ThreadPool.h"
@@ -176,13 +169,13 @@ int main(int argn, const char *args[]) {
             printf(" width: %d\n", result.goban.width);
             printf(" player to move: %d\n", result.player_to_move);
             printf("\n");
-            result.goban.showBoard('X', 'o', '.');
+            result.goban.board.print('X', 'o', '.');
             printf("\n");
-            result.removal.showBoard('r', 'o', '.');
+            result.removal.board.print('r', 'o', '.');
             printf("\n");
-            result.est.showBoard('#', '_', '.');
+            result.est.board.print('#', '_', '.');
             printf("\n");
-            result.errors.showBoard('E', 'E', '.');
+            result.errors.board.print('E', 'E', '.');
             ++num_errors;
         } else {
             printf("### PASS %s [%ld ms]\n", result.filename, result.elapsed);

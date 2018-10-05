@@ -19,6 +19,9 @@ class Goban {
         int       do_ko_check;
         Point     possible_ko;
 
+        Grid<int> global_visited;
+        int       last_visited_counter;
+
         Goban();
         Goban(const Goban &other);
         Goban estimate(Color player_to_move, int trials, float tolerance);
@@ -40,11 +43,4 @@ class Goban {
         bool is_territory(Point pt, Color player);
         void fill_territory(Point pt, Color player);
         void synchronize_tracking_counters(Grid<int> &track, Goban &visited, Point &p);
-
-
-#ifdef DEBUG
-    public:
-        void showBoard(unsigned char black='X', unsigned char white='o', unsigned char blank='.');
-        Point pointFromStr(const char *str);
-#endif
 };
