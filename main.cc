@@ -54,7 +54,7 @@ int main(int argn, const char *args[]) {
     int num_passes = 0;
 
 #if USE_THREADS
-    int num_threads = std::thread::hardware_concurrency() / 2;
+    int num_threads = std::thread::hardware_concurrency();
 #endif
 
 
@@ -162,20 +162,12 @@ int main(int argn, const char *args[]) {
 #if USE_THREADS
             return result;
         }));
-#else
-        results.push_back(result);
-#endif
-
-
 
     }
 
     for (auto &res_future : results) {
-#if USE_THREADS
         res_future.wait();
         Result result = res_future.get();
-#else
-        Result result = res_future;
 #endif
 
         if (result.errct) {
