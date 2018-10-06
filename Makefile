@@ -12,7 +12,9 @@ EMCC_FLAGS=-s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNC
 all build: run_estimator_tests
 
 quick: build
-	./run_estimator_tests test_games/hard/12508083.game 
+	#./run_estimator_tests test_games/hard/12508083.game 
+	#./run_estimator_tests test_games/hard/9307720.game 
+	./run_estimator_tests test_games/mid/3964661.game
 
 light: build
 	./run_estimator_tests \

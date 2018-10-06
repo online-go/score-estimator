@@ -36,7 +36,7 @@ struct Result {
 int main(int argn, const char *args[]) {
     srand(time(NULL));
     int trials = 10000;
-    float tolerance = 0.35f;
+    float tolerance = 0.30f;
 
     if (argn < 2) {
         fprintf(stderr, "Usage: estimator <file.game> ...\n");
@@ -116,8 +116,10 @@ int main(int argn, const char *args[]) {
                 throw runtime_error("Invalid game file");
             }
 
-            result.removal.height = result.goban.height = scan1(fp, "height %d\n");
-            result.removal.width  = result.goban.width  = scan1(fp, "width %d\n");
+            int height = scan1(fp, "height %d\n");;
+            int width = scan1(fp, "width %d\n");;
+            result.removal.setBoardSize(width, height);
+            result.goban.setBoardSize(width, height);
             result.player_to_move = scan1(fp, "player_to_move %d\n");
 
             if (result.player_to_move != 1 && result.player_to_move != -1) {
@@ -168,13 +170,13 @@ int main(int argn, const char *args[]) {
             printf(" height: %d\n", result.goban.height);
             printf(" width: %d\n", result.goban.width);
             printf(" player to move: %d\n", result.player_to_move);
-            printf("\n");
+            printf("\nBoard:\n");
             result.goban.board.print('X', 'o', '.');
-            printf("\n");
+            printf("\nRemoved:\n");
             result.removal.board.print('r', 'o', '.');
-            printf("\n");
+            printf("\nEstimated Area:\n");
             result.est.board.print('#', '_', '.');
-            printf("\n");
+            printf("\nErrors:\n");
             result.errors.board.print('E', 'E', '.');
             ++num_errors;
         } else {
@@ -199,8 +201,7 @@ int main(int argn, const char *args[]) {
 
 Goban check_stone_removal(const Goban &goban, const Goban &est, const Goban &removal) {
     Goban errors;
-    errors.width = goban.width;
-    errors.height = goban.height;
+    errors.setBoardSize(goban.width, goban.height);
 
     for (int y=0; y < removal.height; ++y) {
         for (int x=0; x < removal.width; ++x) {
