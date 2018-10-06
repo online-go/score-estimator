@@ -1,5 +1,6 @@
 /* vim: set tabstop=4 expandtab */
 #include "Goban.h"
+#include "log.h"
 #ifndef EMSCRIPTEN
 #  include <string.h>
 #  include <stdlib.h>
@@ -15,13 +16,15 @@ using namespace std;
 #endif
 
 
-Goban::Goban() 
-    : width(19)
-    , height(19) 
+Goban::Goban(int width, int height) 
+    : width(width)
+    , height(height) 
     , board(width, height) 
     , global_visited(width, height) 
     , last_visited_counter(1)
 {
+    default_grid_width = width;
+    default_grid_height = height;
 }
 
 void Goban::setBoardSize(int width, int height) {
@@ -31,66 +34,209 @@ void Goban::setBoardSize(int width, int height) {
     board.height = height;
     global_visited.width = width;
     global_visited.height = height;
+
+    board.clear();
+    global_visited.clear();
+
+    default_grid_width = width;
+    default_grid_height = height;
 }
-Goban Goban::estimate(Color player_to_move, int trials, float tolerance) {
-    Goban ret(*this);
-    Grid<int> track(width, height);
+Grid Goban::estimate(Color player_to_move, int trials, float tolerance, bool debug) const {
+    Goban t(*this);
+    return t._estimate(player_to_move, trials, tolerance, debug);
+}
+
+Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool debug) {
+    default_grid_width = width;
+    default_grid_height = height;
 
 
-
-    /* Bias our scoring towards trusting the player's area is theirs */
-    {
-        Goban t(*this);
-
-        /* fill in territory */
-        for (int y=0; y < height; ++y) {
-            for (int x=0; x < width; ++x) {
-                Point p(x,y);
-                if (t[p] == 0) {
-                    if (t.is_territory(p, BLACK)) {
-                        t.fill_territory(p, BLACK);
-                    }
-                    if (t.is_territory(p, WHITE)) {
-                        t.fill_territory(p, WHITE);
-                    }
-                }
-            }
+#ifndef EMSCRIPTEN
+    if (debug) {
+        Vec false_eyes = getFalseEyes();
+        if (false_eyes.size) {
+            NOTE << "False eyes: " << false_eyes << endl;
         }
+    }
+#endif
 
-        for (int y=0; y < height; ++y) {
-            for (int x=0; x < width; ++x) {
-                //if (board[y][x] == 0) {
-                track[y][x] += t.board[y][x] * trials * (tolerance/2);
-                //}
+    fillFalseEyes();
+
+
+    Grid ret;
+    Goban goban_pass2(*this);
+    Grid pass1;
+
+    {
+
+    tolerance *= 2;
+    Grid bias = computeBias(trials, tolerance);
+    Grid territory_map = computeTerritory();
+    Grid group_map = computeGroupMap();
+    Grid liberty_map = computeLiberties(group_map);
+    Grid strong_life = computeStrongLife(group_map, territory_map, liberty_map);
+
+
+
+    //bias.clear();
+    //territory_map.clear();
+    //liberty_map.clear();
+    //strong_life.clear();
+
+    Grid liberty_bias = biasLibertyMap(trials, tolerance, liberty_map);
+    bias += liberty_bias;
+
+    Grid likely_dead = biasLikelyDead(trials, tolerance, liberty_map);
+    bias += likely_dead;
+
+    tolerance /= 2 ;
+
+#ifndef EMSCRIPTEN
+    if (debug) {
+        printf("\nLikely dead:\n");
+        likely_dead.printInts();
+
+        printf("\nLiberty bias:\n");
+        liberty_bias.printInts();
+
+        printf("\nBias map:\n");
+        bias.printInts();
+        printf("\nTerritory map:\n");
+        territory_map.printInts();
+        printf("\nGroup map:\n");
+        group_map.printInts();
+        printf("\nLiberty map:\n");
+        liberty_map.printInts();
+        printf("\nLife map:\n");
+        strong_life.printInts();
+    }
+#endif
+
+
+    int pass1_iterations = trials;
+    //Grid pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
+    pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
+    Vec dead = getDead(pass1_iterations, tolerance, pass1);
+
+#ifndef EMSCRIPTEN
+    if (debug) {
+        printf("\nPass1 :\n");
+        pass1.printInts(" %7d", "       ");
+    }
+#endif
+
+    /* remove obviously dead stones from first pass */
+    goban_pass2.board.set(dead, 0);
+
+
+#ifndef EMSCRIPTEN
+    Grid removed;
+    removed.set(dead, 1);
+    if (debug) {
+        printf("\nRemoved from pass1:\n");
+        removed.printInts();
+    }
+#endif
+    }
+
+
+
+    /* Create a result board based off of how many times each spot
+     * was which color. */
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            /* If we're pretty confident we know who the spot belongs to, mark it */
+            if (pass1[y][x] > trials*tolerance) {
+                ret[y][x] = 1;
+            } else if (pass1[y][x] < trials*-tolerance) {
+                ret[y][x] = -1;
+            /* if that fails, it's probably just dame */
+            } else {
+                ret[y][x] = 0;
             }
         }
     }
 
 
-    Grid<int> territory_map = computeTerritory();
-    Grid<int> group_map = computeGroupMap();
-    Grid<int> liberty_map = computeLiberties(group_map);
-    Grid<int> strong_life = computeStrongLife(group_map, territory_map, liberty_map);
+    /* TODO: Foreach hole, if it can only reach one color, color it that */
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Vec group, neighbors;
+            Point p(x,y);
+            if (ret[p] == 0) {
+                board.groupAndNeighbors(p, group, neighbors);
+                if (ret.allNotEqualTo(neighbors, WHITE)) {
+                    ret.set(group, BLACK);
+                } else if (ret.allNotEqualTo(neighbors, BLACK)) {
+                    ret.set(group, WHITE);
+                }
+            }
+        }
+    }
 
-#ifndef EMSCRIPTEN
-    printf("\nBias map:\n");
-    track.printInts();
+    return ret;
+}
 
-    printf("\nTerritory map:\n");
-    territory_map.printInts();
-    printf("\nGroup map:\n");
-    group_map.printInts();
-    printf("\nLiberty map:\n");
-    liberty_map.printInts();
-    printf("\nLife map:\n");
-    strong_life.printInts();
-#endif
+Grid Goban::biasLibertyMap(int num_iterations, float tolerance, const Grid &liberty_map) const {
+    Grid ret(width, height);
 
-    for (int i=0; i < trials; ++i) {
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            if (board[p] == 0 && liberty_map[p] > 6) {
+                ret[p] = BLACK * (num_iterations * tolerance / 2);
+            }
+            if (board[p] == 0 && liberty_map[p] < -6) {
+                ret[p] = WHITE * (num_iterations * tolerance / 2);
+            }
+        }
+    }
+
+    return ret;
+}
+
+Grid Goban::biasLikelyDead(int num_iterations, float tolerance, const Grid &liberty_map) const {
+    Grid ret(width, height);
+    Grid visited(width, height);
+
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            if (board[p] != 0) {
+                if (visited[p]) {
+                    continue;
+                }
+                Vec group = board.group(p);
+                visited.set(group, 1);
+                if (group.size == 1) {
+                    Vec neighbors;
+                    board.getNeighbors(p, neighbors);
+                    int remove = 1;
+                    for (int i=0; i < neighbors.size; ++i) {
+                        if (!((liberty_map[neighbors[i]] > 6 && board[p] == WHITE) || (liberty_map[neighbors[i]] < 6 && board[p] == BLACK)))  {
+                            remove = 0;
+                        }
+                    }
+                    ret[p] = remove * -board[p] * (num_iterations * tolerance / 2);
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
+Grid Goban::rollout(int num_iterations, Color player_to_move, const Grid &life_map, const Grid &bias) const {
+    Grid ret = bias;
+
+    for (int i=0; i < num_iterations; ++i) {
         /* Play out a random game */
         Goban t(*this);
 
-        t.play_out_position(player_to_move, strong_life);
+        t.play_out_position(player_to_move, life_map);
+        
+        //t.board.print();
 
         /* fill in territory */
         for (int y=0; y < height; ++y) {
@@ -110,67 +256,68 @@ Goban Goban::estimate(Color player_to_move, int trials, float tolerance) {
         /* track how many times each spot was white or black */
         for (int y=0; y < height; ++y) {
             for (int x=0; x < width; ++x) {
-                track[y][x] += t.board[y][x];
+                ret[y][x] += t.board[y][x];
             }
         }
     }
 
-    printf("\nTrack map:\n");
-    track.printInts();
+    //printf("\nTrack before map:\n");
+    //ret.printInts(" %7d", "       ");
 
 
     /* For each stone group, find the maximal track counter and set
      * all stones in that group to that level */
-    Goban visited;
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            Point p(x,y);
-            if (!visited[p]) {
-                synchronize_tracking_counters(track, visited, p);
-            }
-        }
-    }
+    {
+        Grid visited(width, height);
 
+        for (int y=0; y < height; ++y) {
+            for (int x=0; x < width; ++x) {
+                Point p(x,y);
 
-    /* Create a result board based off of how many times each spot
-     * was which color. */
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            Point p(x,y);
-            /* If we're pretty confident we know who the spot belongs to, mark it */
-            if (track[y][x] > trials*tolerance) {
-                ret.board[y][x] = 1;
-            } else if (track[y][x] < trials*-tolerance) {
-                ret.board[y][x] = -1;
-            /* if that fails, it's probably just dame */
-            } else {
-                ret.board[y][x] = 0;
-            }
-        }
-    }
-
-
-    /* TODO: Foreach hole, if it can only reach one color, color it that */
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            Point p(x,y);
-            if (ret[p] == 0) {
-                if (ret.is_territory(p, BLACK)) {
-                    ret.fill_territory(p, BLACK);
-                }
-                if (ret.is_territory(p, WHITE)) {
-                    ret.fill_territory(p, WHITE);
+                if (!visited[p] && board[p]) {
+                    Vec group = board.group(p);
+                    int minmax = ret.minmax(group);
+                    visited.set(group, 1);
+                    ret.set(group, minmax);
                 }
             }
         }
     }
 
 
+    //return ret + bias;
     return ret;
 }
+Grid Goban::computeBias(int num_iterations, float tolerance) {
+    Grid bias(width, height);
+    /* Bias our scoring towards trusting the player's area is theirs */
+    Goban t(*this);
 
-Grid<int> Goban::computeGroupMap() {
-    Grid<int> ret(width, height);
+    /* fill in territory */
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            if (t[p] == 0) {
+                if (t.is_territory(p, BLACK)) {
+                    t.fill_territory(p, BLACK);
+                }
+                if (t.is_territory(p, WHITE)) {
+                    t.fill_territory(p, WHITE);
+                }
+            }
+        }
+    }
+
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            bias[y][x] += t.board[y][x] * num_iterations * (tolerance/2);
+        }
+    }
+
+    return bias;
+}
+Grid Goban::computeGroupMap() const{
+    Grid ret(width, height);
     int cur_group = 1;
 
     for (int y=0; y < height; ++y) {
@@ -184,8 +331,8 @@ Grid<int> Goban::computeGroupMap() {
 
     return ret;
 }
-Grid<int> Goban::computeTerritory() {
-    Grid<int> ret(width, height);
+Grid Goban::computeTerritory() {
+    Grid ret(width, height);
 
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
@@ -208,9 +355,9 @@ Grid<int> Goban::computeTerritory() {
 
     return ret;
 }
-Grid<int> Goban::computeLiberties(const Grid<int> &group_map) {
-    Grid<int> ret(width, height);
-    Grid<int> visited(width, height);
+Grid Goban::computeLiberties(const Grid &group_map) const {
+    Grid ret(width, height);
+    Grid visited(width, height);
 
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
@@ -235,7 +382,7 @@ Grid<int> Goban::computeLiberties(const Grid<int> &group_map) {
                 /* liberties of stone group */
                 for (int i=0; i < neighbors.size; ++i) {
                     if ((*this)[neighbors[i]] == 0) {
-                        ++liberty_count;
+                        liberty_count += (*this)[p];
                     }
                 }
             }
@@ -246,11 +393,11 @@ Grid<int> Goban::computeLiberties(const Grid<int> &group_map) {
 
     return ret;
 }
-Grid<int> Goban::computeStrongLife(const Grid<int> &groups, const Grid<int> &territory, const Grid<int> &liberties) {
-    Grid<int> ret(width, height);
-    Grid<int> visited(width, height);
+Grid Goban::computeStrongLife(const Grid &groups, const Grid &territory, const Grid &liberties) const {
+    Grid ret(width, height);
+    Grid visited(width, height);
 
-    Grid<int> unified_territory_and_stones(width, height);
+    Grid unified_territory_and_stones(width, height);
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
             Point p(x,y);
@@ -295,47 +442,76 @@ Grid<int> Goban::computeStrongLife(const Grid<int> &groups, const Grid<int> &ter
 
     return ret;
 }
+Vec Goban::getDead(int num_iterations, float tolerance, const Grid &rollout_pass) const {
+    Vec removed;
 
-void Goban::synchronize_tracking_counters(Grid<int> &track, Goban &visited, Point &p) {
-    Vec         tocheck;
-    NeighborVec neighbors;
-    int         my_color        = (*this)[p];
-    int         max_track_value = track[p.y][p.x];
-    Vec         to_synchronize;
-
-    tocheck.push(p);
-    visited[p] = true;
-
-    if (my_color == 0) {
-        return;
-    }
-
-    while (tocheck.size) {
-        Point p = tocheck.remove(0);
-        to_synchronize.push(p);
-        max_track_value = max_track_value < 0 ?
-                            MIN(track[p.y][p.x], max_track_value) :
-                            MAX(track[p.y][p.x], max_track_value);
-        board.getNeighbors(p, neighbors);
-        for (int i=0; i < neighbors.size; ++i) {
-            Point neighbor = neighbors[i];
-            if ((*this)[neighbor] == my_color) {
-                if (visited[neighbor]) continue;
-                visited[neighbor] = true;
-                tocheck.push(neighbor);
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            /* If we're pretty confident we know who the spot belongs to, mark it */
+            if (rollout_pass[p] > num_iterations * tolerance) {
+                if (board[p] == -1) { /* pretty sure it's black, but it was white? removed. */
+                    removed.push(p);
+                }
+            } else if (rollout_pass[y][x] < num_iterations * -tolerance) {
+                if (board[p] == 1) { /* pretty sure it's white, but it was black? removed. */
+                    removed.push(p);
+                }
+            } else {
+                /* No idea who the spot belongs to, but it was a color? Probably removed. */
+                if (board[p] != 0) {
+                    removed.push(p);
+                }
             }
         }
     }
 
-    for (int i=0; i < to_synchronize.size; ++i) {
-        Point p = to_synchronize[i];
-        track[p.y][p.x] = max_track_value;
+    return removed;
+}
+Vec Goban::getFalseEyes() const {
+    Vec false_eyes;
+
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            if (at(p) == 0) {
+                Vec neighbors;
+                Vec corners;
+                board.getNeighbors(p, neighbors);
+                board.getCornerPoints(p, corners);
+
+                if (corners.size == 1) {
+                    continue;
+                }
+
+                if (board.allEqualTo(neighbors, BLACK) && board.countEqual(corners, WHITE) >= (corners.size>>1)) {
+                    false_eyes.push(p);
+                }
+                else if (board.allEqualTo(neighbors, WHITE) && board.countEqual(corners, BLACK) >= (corners.size>>1)) {
+                    false_eyes.push(p);
+                }
+            }
+        }
+    }
+
+    return false_eyes;
+}
+void Goban::fillFalseEyes(const Vec &false_eyes) {
+    for (int i=0; i < false_eyes.size; ++i) {
+        Vec neighbors;
+        Vec dummy;
+        board.getNeighbors(false_eyes[i], neighbors);
+
+        place_and_remove(false_eyes[i], (Color)board[neighbors[0]], dummy);
+        //board[false_eyes[i]] = board[neighbors[0]];
     }
 }
+
 bool Goban::is_territory(Point pt, Color player) {
     Vec         tocheck;
-    NeighborVec neighbors;
+    Vec neighbors;
     int         visited_counter = ++last_visited_counter;
+    int         adjacent_player_stones = 0;
 
     tocheck.push(pt);
     global_visited[pt] = visited_counter;
@@ -354,14 +530,16 @@ bool Goban::is_territory(Point pt, Color player) {
             if ((*this)[p] != player) {
                 return false;
             }
+            adjacent_player_stones++;
         }
     }
 
-    return true;;
+    /* if adjacent_player_stones is 0 then we have a blank board */
+    return adjacent_player_stones > 0;
 }
 void Goban::fill_territory(Point pt, Color player) {
     Vec         tocheck;
-    NeighborVec neighbors;
+    Vec neighbors;
     int         visited_counter = ++last_visited_counter;
 
     tocheck.push(pt);
@@ -381,7 +559,7 @@ void Goban::fill_territory(Point pt, Color player) {
         }
     }
 }
-void Goban::play_out_position(Color player_to_move, const Grid<int> &life_map) {
+void Goban::play_out_position(Color player_to_move, const Grid &life_map) {
     do_ko_check = 0;
     possible_ko = Point(-1,-1);
 
@@ -398,27 +576,48 @@ void Goban::play_out_position(Color player_to_move, const Grid<int> &life_map) {
     }
 
     int sanity = 1000;
+    int passed = false;
     while (possible_moves.size > 0 && --sanity > 0) {
         int move_idx = rand() % possible_moves.size;
         Point mv(possible_moves[move_idx]);
 
         if (is_eye(mv, player_to_move)) {
             illegal_moves.push(possible_moves.remove(move_idx));
+
+            if (possible_moves.size == 0) {
+                if (passed) {
+                    break;
+                }
+                passed = true;
+                possible_moves.append(illegal_moves);
+                illegal_moves.size = 0;
+                player_to_move = (Color)-player_to_move;
+            }
             continue;
         }
 
+
         int result = place_and_remove(mv, player_to_move, possible_moves);
         if (result == OK) {
+            passed = false;
             possible_moves.remove(move_idx);
             player_to_move = (Color)-player_to_move;
-            for (int i=0; i < illegal_moves.size; ++i) {
-                possible_moves.push(illegal_moves[i]);
-            }
+            possible_moves.append(illegal_moves);
             illegal_moves.size = 0;
             continue;
         }
         else if (result == ILLEGAL) {
             illegal_moves.push(possible_moves.remove(move_idx));
+
+            if (possible_moves.size == 0) {
+                if (passed) {
+                    break;
+                }
+                passed = true;
+                possible_moves.append(illegal_moves);
+                illegal_moves.size = 0;
+                player_to_move = (Color)-player_to_move;
+            }
 
             continue;
         }
@@ -433,7 +632,7 @@ Goban::Result Goban::place_and_remove(Point move, Color player, Vec &possible_mo
 
     bool        reset_ko_check = true;
     bool        removed        = false;
-    NeighborVec neighbors;
+    Vec neighbors;
 
     board.getNeighbors(move, neighbors);
 
@@ -539,9 +738,9 @@ bool Goban::has_liberties(const Point &pt) {
     return false;
 }
 int  Goban::remove_group(Point move, Vec &possible_moves) {
-    Goban       visited;
+    Grid        visited;
     Vec         tocheck;
-    NeighborVec neighbors;
+    Vec         neighbors;
     int         n_removed = 0;
     int         my_color  = (*this)[move];
 
@@ -571,7 +770,7 @@ int  Goban::remove_group(Point move, Vec &possible_moves) {
 
     return n_removed;;
 }
-bool Goban::is_eye(Point pt, Color player) {
+bool Goban::is_eye(Point pt, Color player) const {
     if ((pt.x == 0        || board[pt.y][pt.x-1] == player) &&
         (pt.x == width-1  || board[pt.y][pt.x+1] == player) &&
         (pt.y == 0        || board[pt.y-1][pt.x] == player) &&
@@ -580,15 +779,6 @@ bool Goban::is_eye(Point pt, Color player) {
         return true;
     }
     return false;
-}
-int  Goban::score() {
-    int ret = 0;
-    for (int y=0; y < height; ++y) {
-        for (int x=0; x < width; ++x) {
-            ret += board[y][x];
-        }
-    }
-    return ret;
 }
 void Goban::setSize(int width, int height) {
     this->width = width;

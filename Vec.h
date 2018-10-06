@@ -3,15 +3,18 @@
 #include "Point.h"
 #include "constants.h"
 
-template<int SIZE>
-class Vec_t {
+class Vec {
     public:
-        Point points[SIZE];
+        Point points[MAX_VEC_SIZE];
         int size;
 
     public:
-        Vec_t() {
-            size = 0;
+        Vec() : size(0) {
+        }
+        Vec(const Vec &o) : size(o.size) {
+            for (int i = 0; i < size; ++i) {
+                points[i] = o.points[i];
+            }
         }
         Point operator[](const int &i) const { 
             return points[i]; 
@@ -27,8 +30,26 @@ class Vec_t {
             points[idx] = points[--size];
             return ret;
         }
+        Vec& append(const Vec &o) {
+            for (int i=0; i < o.size; ++i) {
+                push(o[i]);
+            }
+            return *this;
+        }
 };
 
 
-typedef Vec_t<MAX_SIZE> Vec;
-typedef Vec_t<4>        NeighborVec;
+#ifdef DEBUG
+#  include "constants.h"
+#  include <iostream>
+
+inline std::ostream& operator<<(std::ostream &o, const Vec &vec) {
+    for (int i=0; i < vec.size; ++i) {
+        if (i > 0) {
+            o << ", ";
+        }
+        o << vec[i];
+    }
+    return o;
+}
+#endif

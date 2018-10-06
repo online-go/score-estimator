@@ -14,7 +14,22 @@ all build: run_estimator_tests
 quick: build
 	#./run_estimator_tests test_games/hard/12508083.game 
 	#./run_estimator_tests test_games/hard/9307720.game 
-	./run_estimator_tests test_games/mid/3964661.game
+	#./run_estimator_tests test_games/mid/3964661.game
+	#./run_estimator_tests test_games/easy/13043976.game
+	./run_estimator_tests test_games/easy/14242770.game
+
+pattern patterns:
+	./run_estimator_tests test_games/patterns/*.game
+
+
+hard: build
+	./run_estimator_tests test_games/hard/*.game
+easy: build
+	./run_estimator_tests test_games/easy/*.game
+mid: build
+	./run_estimator_tests test_games/mid/*.game
+no_removal: build
+	./run_estimator_tests test_games/no_removal/*.game
 
 light: build
 	./run_estimator_tests \
@@ -31,6 +46,7 @@ js-debug:
 
 js:
 	emcc $(EMCC_FLAGS) -O3 -g0 jsbindings.cc -o score_estimator.js
+	#emcc $(EMCC_FLAGS) -O3 -g0 -s WASM=0 jsbindings.cc -o score_estimator.js
 	@rm -f score_estimator.js.gz
 	@gzip -k score_estimator.js
 	@echo

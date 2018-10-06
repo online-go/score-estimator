@@ -10,79 +10,15 @@ C++, we compile it to JavaScript using
 the browser.
 
 
-# Developing
+## Seki
 
-For development and debugging, the c++ code can be compiled into a simple
-executable that loads and scores games provided on the command line.
+Different GO rules treat territory in seki differently. The output of this
+program will attempt to mark shared territory spots as being dead, but will
+specifically attempt to not mark any territory in seki as being dead, and
+instead leave that to a scoring ruleset to determine as being counted or
+not.
 
-Simply running
-```
-make
-```
-
-will compile this development executable under most platforms with `g++` and some `make` implementation. `clang++` can also be used, as well as probably most other c++ compilers.
-
-Once built, running
-
-```
-./estimator test_games/1776378.game
-```
-
-should produce something similar to the following output:
-
-```
-test_games/1776378.game
-height: 19
-width: 19
-player to move: -1
-o     o o o _
-o   o   o _   _ _
-  o o o o _ _ _ o       _       _ _ _
-o o _ _ _ o o o o _ _ _ _ o _ _ o o _
-_ _ _ o o _ _   _ _ o o o _   _ o o o
-_ o o   o o _ _ _ o _ _ o _   _ o
-_ _ o   o   o _ o o o   o _ _ _ _ o
-_ _ o       o _ _ o   o o _ o o o   o
-_ _ o   o o _ _ o o o _ o _ _ _ o o o
-_ o o o o _ _ _ _ o   _ o o o o _ o _
-_ _ _ o _ _ o o o _ _ _ _ _ o   _ _ _
-o   _ _ o o o _ _ _ _ _ o o _ _ _   _
-o _ _ o   o o o _ o _     o o _   _ _
-o   _ o o o _ _ o o _ _   o _ _ _ o _
-_ _ _ _ _ o       o o o _ _ o o _ o o
-_ o o o _ o _ o o   o _   _ _ o o o o
-o   o   o _ o   o o _   _ _ o o o o
-  o o   o     _ o o _ _   _ o o o   o
-o               o _ _     _ _ o o   o
-
-
-o o o o o o _ _ _ _ _ _ _ _ _ _ _ _ _
-o o o o o _ _ _ _ _ _ _ _ _ _ _ _ _ _
-o o o o o _ _ _ _ _ _ _ _ _ _ _ _ _ _
-o o _ _ _ _ _ _ _ _ _ _ _ _ _ _ o o _
-_ _ _ o o _ _ _ _ _ o o o _ _ _ o o o
-_ o o o o o _ _ _ o o o o _ _ _ o o o
-_ _ o o o o o _ o o o o o _ _ _ _ o o
-_ _ o o o o o _ _ o o o o _ o o o o o
-_ _ o o o o _ _ o o o _ o _ _ _ o o o
-_ o o o o _ _ _ _ o   _ o o o o _ o _
-_ _ _ o _ _ o o o _ _ _ _ _ o   _ _ _
-_ _ _ _ o o o _ _ _ _ _ _ _ _ _ _ _ _
-_ _ _ o o o o o _ o _ _ _ _ _ _ _ _ _
-_ _ _ o o o o o o o _ _ _ _ _ _ _ o _
-_ _ _ _ _ o o o o o o o _ _ o o _ o o
-_ o o o _ o o o o o o _ _ _ _ o o o o
-o o o o o o o o o o _ _ _ _ o o o o o
-o o o o o o o o o o _ _ _ _ o o o o o
-o o o o o o o o o _ _ _ _ _ _ o o o o
-
-
-Score: -7.500000
-Time elapsed: 498.653250 ms
-```
-
-with `o` being black, `_` being white, showing how the estimator decided to
-fill and assign territory.
-
-
-
+That is to say
+![](https://senseis.xmp.net/diagrams/30/1d10677a69ac35bb0021701f2e1c02a7.png)
+points a and b will *not* be marked dead, but the two shared territory spaces
+will be marked as dead.

@@ -1,6 +1,5 @@
 #pragma once
 
-
 class Point {
     public:
         int x;
@@ -25,7 +24,7 @@ class Point {
 
 inline std::ostream& operator<<(std::ostream &o, const Point &pt) {
     if (pt.x >= 0) {
-        o << board_letters[pt.x] << 19 - pt.y;
+        o << board_letters[pt.x] << default_grid_height - pt.y;
     }
     if (pt.x == -1) {
         o << "pass";
