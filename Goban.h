@@ -32,8 +32,12 @@ class Goban {
         inline int& operator[](const Point &p) { return board[p]; }
         void setSize(int width, int height);
         void clearBoard();
-        void play_out_position(Color player_to_move, const Grid &life_map);
+        void play_out_position(Color player_to_move, const Grid &life_map, const Grid &seki);
         Result place_and_remove(Point move, Color player, Vec &possible_moves);
+
+
+        /* Looks for probable seki situations and returns them as a binary grid */
+        Grid scanForSeki(int num_iterations, float tolerance, const Grid &rollout_pass) const;
 
         /** Returns a list of false eyes detected */
         Vec getFalseEyes() const;
@@ -50,7 +54,7 @@ class Goban {
          * horrible for a bot, but we're just trying to mark the board up how
          * the players, who may be weak or strong, view the board. 
          */
-        Grid rollout(int num_iterations, Color player_to_move, const Grid &life_map, const Grid &bias) const;
+        Grid rollout(int num_iterations, Color player_to_move, bool pullup_life_based_on_neigboring_territory = true, const Grid &life_map = Grid(), const Grid &bias = Grid(), const Grid &seki = Grid()) const;
 
         /** 
          * We bias positions on the board based on who they currently belong
@@ -103,6 +107,7 @@ class Goban {
         bool has_liberties(const Point &pt);
         int  remove_group(Point move, Vec &possible_moves);
         bool is_eye(Point move, Color player) const;
+        bool is_safe_horseshoe(Point move, Color player) const; // u shape but not eye, without opponents in enough corners to be dangerous
         bool is_territory(Point pt, Color player) ;
         void fill_territory(Point pt, Color player);
 #if 0

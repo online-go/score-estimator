@@ -44,8 +44,9 @@ struct Result {
 
 int main(int argn, const char *args[]) {
     srand(time(NULL));
-    int trials = 10000;
+    int trials = 1000;
     //float tolerance = 0.30f;
+    //float tolerance = 0.20f;
     float tolerance = 0.35f;
 
     if (argn < 2) {

@@ -27,7 +27,7 @@ class TGrid {
         inline T& at(const Point &p) { return _data[p.y][p.x]; }
         inline T operator[](const Point &p) const { return _data[p.y][p.x]; }
         inline T& operator[](const Point &p) { return _data[p.y][p.x]; }
-        inline TGrid operator+(const TGrid &o) { 
+        inline TGrid operator+(const TGrid &o) const { 
             TGrid ret(width, height);
             for (int y=0; y < height; ++y) {
                 for (int x=0; x < width; ++x) {
@@ -43,6 +43,32 @@ class TGrid {
                 }
             }
             return *this;
+        }
+        inline TGrid& operator*=(const TGrid &o) { 
+            for (int y=0; y < height; ++y) {
+                for (int x=0; x < width; ++x) {
+                     _data[y][x] *= o._data[y][x];
+                }
+            }
+            return *this;
+        }
+        inline TGrid& operator*=(const T &v) { 
+            for (int y=0; y < height; ++y) {
+                for (int x=0; x < width; ++x) {
+                     _data[y][x] *= v;
+                }
+            }
+            return *this;
+        }
+        inline TGrid operator*(const TGrid &o) const { 
+            TGrid ret(*this);
+            ret *= o;
+            return ret;
+        }
+        inline TGrid operator*(const T &v) const { 
+            TGrid ret(*this);
+            ret *= v;
+            return ret;
         }
 
         /* Clears all locations with the provided value */ 
@@ -143,12 +169,41 @@ class TGrid {
             return ret;
         }
 
+        /* Returns a Vec containing all the points in group which are equal to value */
+        Vec match(const Vec &group, const T &value) const {
+            Vec ret;
+            for (int i=0; i < group.size; ++i) {
+                if (at(group[i]) == value) {
+                    ret.push(group[i]);
+                }
+            }
+            return ret;
+        }
+
         /* Returns the maximum or minimum value of all points within the
          * provided group, whichever has the greatest magnitude */
         T minmax(const Vec &group) const {
             T ret = (*this)[group[0]];
             for (int i=0; i < group.size; ++i) {
                 if (abs(ret) < abs((*this)[group[i]])) {
+                    ret = (*this)[group[i]];
+                }
+            }
+            return ret;
+        }
+        T min(const Vec &group) const {
+            T ret = (*this)[group[0]];
+            for (int i=0; i < group.size; ++i) {
+                if (ret > (*this)[group[i]]) {
+                    ret = (*this)[group[i]];
+                }
+            }
+            return ret;
+        }
+        T max(const Vec &group) const {
+            T ret = (*this)[group[0]];
+            for (int i=0; i < group.size; ++i) {
+                if (ret < (*this)[group[i]]) {
                     ret = (*this)[group[i]];
                 }
             }
@@ -181,6 +236,89 @@ class TGrid {
             }
             return true;
         }
+
+        /* Returns true if the absolute value of at least one point in the provided group are less than or equal to the given value*/
+        bool anyAbsLTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (abs(at(group[i])) <= value) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* Returns true if the absolute value of at least one point in the provided group are greater than or equal to the given value*/
+        bool anyAbsGTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (abs(at(group[i])) >= value) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* Returns true if the absolute value of all points in the provided group are less than or equal to the given value*/
+        bool allAbsLTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (abs(at(group[i])) > value) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /* Returns true if the absolute value of all points in the provided group are greater than or equal to the given value*/
+        bool allAbsGTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (abs(at(group[i])) < value) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
+        /* Returns true if the value of at least one point in the provided group are less than or equal to the given value*/
+        bool anyLTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (at(group[i]) <= value) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* Returns true if the value of at least one point in the provided group are greater than or equal to the given value*/
+        bool anyGTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (at(group[i]) >= value) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /* Returns true if the value of all points in the provided group are less than or equal to the given value*/
+        bool allLTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (at(group[i]) > value) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /* Returns true if the value of all points in the provided group are greater than or equal to the given value*/
+        bool allGTE(const Vec &group, const T &value) const {
+            for (int i=0; i< group.size; ++i) {
+                if (at(group[i]) < value) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+
 
         /* Returns the count of all points that are equal to the given value */
         int countEqual(const Vec &group, const T &value) const {
@@ -217,6 +355,15 @@ class TGrid {
                 for (int x=0; x < width; ++x) {
                     total += _data[y][x];
                 }
+            }
+            return total;
+        }
+
+        /* Sums up all points in a group */
+        T sum(const Vec &group) const {
+            T total = 0;
+            for (int i=0; i < group.size; ++i) {
+                total += _data[group[i].y][group[i].x];
             }
             return total;
         }

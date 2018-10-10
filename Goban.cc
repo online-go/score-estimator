@@ -41,12 +41,12 @@ void Goban::setBoardSize(int width, int height) {
     default_grid_width = width;
     default_grid_height = height;
 }
-Grid Goban::estimate(Color player_to_move, int trials, float tolerance, bool debug) const {
+Grid Goban::estimate(Color player_to_move, int num_iterations, float tolerance, bool debug) const {
     Goban t(*this);
-    return t._estimate(player_to_move, trials, tolerance, debug);
+    return t._estimate(player_to_move, num_iterations, tolerance, debug);
 }
 
-Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool debug) {
+Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance, bool debug) {
     default_grid_width = width;
     default_grid_height = height;
 
@@ -62,20 +62,64 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
 
     fillFalseEyes();
 
+    /* Look for seki, or similar situations */
+    int seki_pass_iterations = num_iterations;
+    Grid seki_pass = rollout(seki_pass_iterations, player_to_move, false);
+    //Grid seki = scanForSeki(num_iterations, tolerance, seki_pass);
+    Grid seki = scanForSeki(num_iterations, 0.2, seki_pass);
+
+    if (debug) {
+        printf("\nSeki pass:\n");
+        seki_pass.printInts(" %6d", "      ");
+        printf("\nSeki:\n");
+        seki.printInts();
+    }
+
+    Grid horseshoe_bias;
+
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            if (board[p] == 0 && (is_safe_horseshoe(p, BLACK) || is_safe_horseshoe(p, WHITE))) {
+                Vec neighbors ;
+                board.getNeighbors(p, neighbors);
+                //if (debug) { NOTE << p << " was horseshoe" << endl; }
+                for (int i=0; i< neighbors.size; ++i) {
+                    Vec gr = board.group(neighbors[i]);
+                    horseshoe_bias.set(gr, 1);
+                }
+            }
+        }
+    }
+
+    horseshoe_bias *= board;
+    horseshoe_bias *= (num_iterations * (tolerance / 2));
+
 
     Grid ret;
-    Goban goban_pass2(*this);
     Grid pass1;
+    float tolerance_scale = 1;
 
-    {
+    tolerance *= tolerance_scale;
+    //Grid bias = computeBias(num_iterations, tolerance);
 
-    tolerance *= 2;
-    Grid bias = computeBias(trials, tolerance);
+    Grid bias = computeBias(num_iterations, tolerance);
     Grid territory_map = computeTerritory();
     Grid group_map = computeGroupMap();
     Grid liberty_map = computeLiberties(group_map);
     Grid strong_life = computeStrongLife(group_map, territory_map, liberty_map);
 
+    //bias += (seki * board) * (int)(num_iterations * tolerance) * 2;
+
+    Grid liberty_bias = biasLibertyMap(num_iterations, tolerance, liberty_map);
+    bias += liberty_bias;
+
+    Grid likely_dead = biasLikelyDead(num_iterations, tolerance, liberty_map);
+    bias += likely_dead;
+
+    bias += horseshoe_bias;
+
+    tolerance /= tolerance_scale ;
 
 
     //bias.clear();
@@ -83,16 +127,14 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
     //liberty_map.clear();
     //strong_life.clear();
 
-    Grid liberty_bias = biasLibertyMap(trials, tolerance, liberty_map);
-    bias += liberty_bias;
 
-    Grid likely_dead = biasLikelyDead(trials, tolerance, liberty_map);
-    bias += likely_dead;
 
-    tolerance /= 2 ;
 
 #ifndef EMSCRIPTEN
     if (debug) {
+        printf("\nHorseshoe bias:\n");
+        horseshoe_bias.printInts();
+
         printf("\nLikely dead:\n");
         likely_dead.printInts();
 
@@ -100,7 +142,7 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
         liberty_bias.printInts();
 
         printf("\nBias map:\n");
-        bias.printInts();
+        bias.printInts(" %5d", "     ");
         printf("\nTerritory map:\n");
         territory_map.printInts();
         printf("\nGroup map:\n");
@@ -113,21 +155,24 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
 #endif
 
 
-    int pass1_iterations = trials;
+    int pass1_iterations = num_iterations;
     //Grid pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
-    pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
+    //pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
+    pass1 = rollout(pass1_iterations, player_to_move, true, strong_life, bias, seki);
     Vec dead = getDead(pass1_iterations, tolerance, pass1);
 
 #ifndef EMSCRIPTEN
     if (debug) {
+        printf("\nBias :\n");
+        bias.printInts(" %6d", "      ");
         printf("\nPass1 :\n");
-        pass1.printInts(" %7d", "       ");
+        pass1.printInts(" %6d", "      ");
     }
 #endif
 
     /* remove obviously dead stones from first pass */
-    goban_pass2.board.set(dead, 0);
-
+    //goban_pass2.board.set(dead, 0);
+    //board.set(dead, 0);
 
 #ifndef EMSCRIPTEN
     Grid removed;
@@ -137,19 +182,16 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
         removed.printInts();
     }
 #endif
-    }
 
 
-
-    /* Create a result board based off of how many times each spot
-     * was which color. */
+    /* Create a result board based off of how many times each spot was which color. */
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
             Point p(x,y);
             /* If we're pretty confident we know who the spot belongs to, mark it */
-            if (pass1[y][x] > trials*tolerance) {
+            if (pass1[y][x] > num_iterations * tolerance) {
                 ret[y][x] = 1;
-            } else if (pass1[y][x] < trials*-tolerance) {
+            } else if (pass1[y][x] < num_iterations * -tolerance) {
                 ret[y][x] = -1;
             /* if that fails, it's probably just dame */
             } else {
@@ -181,6 +223,7 @@ Grid Goban::_estimate(Color player_to_move, int trials, float tolerance, bool de
 Grid Goban::biasLibertyMap(int num_iterations, float tolerance, const Grid &liberty_map) const {
     Grid ret(width, height);
 
+    /*
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
             Point p(x,y);
@@ -192,10 +235,31 @@ Grid Goban::biasLibertyMap(int num_iterations, float tolerance, const Grid &libe
             }
         }
     }
+    */
+
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            Vec neighbors;
+            liberty_map.getNeighbors(p, neighbors);
+
+            int sum = liberty_map[p] + liberty_map.sum(neighbors);
+            //ret[p] = (sum * (num_iterations * tolerance)) / 100;
+            ret[p] = 0;
+            /*
+
+            if (board[p] == 0 && liberty_map[p] > 6) {
+                ret[p] = BLACK * (num_iterations * tolerance / 2);
+            }
+            if (board[p] == 0 && liberty_map[p] < -6) {
+                ret[p] = WHITE * (num_iterations * tolerance / 2);
+            }
+            */
+        }
+    }
 
     return ret;
 }
-
 Grid Goban::biasLikelyDead(int num_iterations, float tolerance, const Grid &liberty_map) const {
     Grid ret(width, height);
     Grid visited(width, height);
@@ -226,15 +290,85 @@ Grid Goban::biasLikelyDead(int num_iterations, float tolerance, const Grid &libe
 
     return ret;
 }
+Grid Goban::scanForSeki(int num_iterations, float tolerance, const Grid &rollout_pass) const {
+    Grid seki;
+    Grid visited;
 
-Grid Goban::rollout(int num_iterations, Color player_to_move, const Grid &life_map, const Grid &bias) const {
+    for (int y=0; y < height; ++y) {
+        for (int x=0; x < width; ++x) {
+            Point p(x,y);
+            Vec group, neighbors;
+            
+            if (visited[p]) {
+                continue;
+            }
+
+            board.groupAndNeighbors(p, group, neighbors);
+            visited.set(group, 1);
+
+            for (int color : { BLACK , WHITE }) {
+                int other = - color;
+
+                if (board[p] == color && rollout_pass.allLTE(group, num_iterations * tolerance) && rollout_pass.allGTE(group, 1)) {
+                    Vec neighboring = board.match(neighbors, other);
+                    int my_liberties = board.countEqual(neighbors, EMPTY);
+
+                    /* If it is questionable that we are dead, and we are neighboring another group
+                     * that is questionably dead - consider ourselves in seki if both groups have the
+                     * same number of liberties. This is not a true seki detection and doesn't work
+                     * in all possible cases, however it's pretty reasonable. */
+                    if (rollout_pass.anyAbsLTE(neighboring, num_iterations * tolerance)) {
+                        int in_seki = true;
+
+                        for (int i=0; i <  neighboring.size; ++i) {
+
+                            if (abs(rollout_pass[neighboring[i]]) < num_iterations * tolerance) {
+                                Vec neighbor_group, neighbor_neighbors;
+                                board.groupAndNeighbors(neighboring[i], neighbor_group, neighbor_neighbors);
+
+                                int neighbor_liberties = board.countEqual(neighbor_neighbors, EMPTY);
+                                if (neighbor_liberties != my_liberties) {
+                                    in_seki = false;
+                                }
+                            }
+                        }
+
+                        if (in_seki) {
+                            seki.set(group, 1);
+                            Vec territory = board.match(neighbors, EMPTY);
+                            seki.set(territory, 1);
+                        }
+                    }
+
+                    /*
+
+                    if (rollout_pass.anyAbsLTE(neighboring, num_iterations * tolerance)
+                        && board.countEqual(neighbors, EMPTY) <= 2
+                        //&& !rollout_pass.anyAbsGTE(neighboring, num_iterations * tolerance)
+                        )
+                    {
+                        seki.set(group, 1);
+
+                        Vec territory = board.match(neighbors, EMPTY);
+                        seki.set(territory, 1);
+                    }
+                    */
+                }
+            }
+        }
+    }
+
+    return seki;
+}
+
+Grid Goban::rollout(int num_iterations, Color player_to_move, bool pullup_life_based_on_neigboring_territory, const Grid &life_map, const Grid &bias, const Grid &seki) const {
     Grid ret = bias;
 
     for (int i=0; i < num_iterations; ++i) {
         /* Play out a random game */
         Goban t(*this);
 
-        t.play_out_position(player_to_move, life_map);
+        t.play_out_position(player_to_move, life_map, seki);
         
         //t.board.print();
 
@@ -261,9 +395,6 @@ Grid Goban::rollout(int num_iterations, Color player_to_move, const Grid &life_m
         }
     }
 
-    //printf("\nTrack before map:\n");
-    //ret.printInts(" %7d", "       ");
-
 
     /* For each stone group, find the maximal track counter and set
      * all stones in that group to that level */
@@ -275,14 +406,30 @@ Grid Goban::rollout(int num_iterations, Color player_to_move, const Grid &life_m
                 Point p(x,y);
 
                 if (!visited[p] && board[p]) {
-                    Vec group = board.group(p);
+                    Vec group, neighbors;
+                    board.groupAndNeighbors(p, group, neighbors);
                     int minmax = ret.minmax(group);
                     visited.set(group, 1);
+
+
+                    if (pullup_life_based_on_neigboring_territory) {
+                        /* If we are adjacent to any territory which is a higher
+                         * value than ourselves, set ourselves to that value */
+                        if (minmax < 0) {
+                            minmax = MIN(ret.min(neighbors), minmax);
+                        }
+
+                        if (minmax > 0) {
+                            minmax = MAX(ret.max(neighbors), minmax);
+                        }
+                    }
+
                     ret.set(group, minmax);
                 }
             }
         }
     }
+
 
 
     //return ret + bias;
@@ -559,7 +706,7 @@ void Goban::fill_territory(Point pt, Color player) {
         }
     }
 }
-void Goban::play_out_position(Color player_to_move, const Grid &life_map) {
+void Goban::play_out_position(Color player_to_move, const Grid &life_map, const Grid &seki) {
     do_ko_check = 0;
     possible_ko = Point(-1,-1);
 
@@ -569,7 +716,7 @@ void Goban::play_out_position(Color player_to_move, const Grid &life_map) {
     for (int y=0; y < height; ++y) {
         for (int x=0; x < width; ++x) {
             Point p(x,y);
-            if (board[p] == 0 && life_map[p] == 0) {
+            if (board[p] == 0 && seki[p] == 0 && life_map[p] == 0) {
                 possible_moves.push(Point(x,y));
             }
         }
@@ -776,8 +923,36 @@ bool Goban::is_eye(Point pt, Color player) const {
         (pt.y == 0        || board[pt.y-1][pt.x] == player) &&
         (pt.y == height-1 || board[pt.y+1][pt.x] == player))
     {
+#if 1
+        Vec corners;
+        board.getCornerPoints(pt, corners);
+        if (board.countEqual(corners, -player) >= (corners.size >> 1)) {
+            /* False eye */
+            return false;
+        }
+#endif
+
         return true;
     }
+    return false;
+}
+bool Goban::is_safe_horseshoe(Point pt, Color player) const {
+    Vec neighbors;
+    board.getNeighbors(pt, neighbors);
+
+
+    if (board.countEqual(neighbors, player) >= neighbors.size - 1 && board.countEqual(neighbors, -player) == 0) {
+        Vec corners;
+        board.getCornerPoints(pt, corners);
+
+        if (board.countEqual(corners, -player) >= (corners.size >> 1)) {
+            /* Looks like a false eye, or very close to it */
+            return false;
+        }
+
+        return true;
+    }
+
     return false;
 }
 void Goban::setSize(int width, int height) {

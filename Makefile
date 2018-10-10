@@ -18,7 +18,19 @@ quick: build
 	#./run_estimator_tests test_games/easy/13043976.game
 	./run_estimator_tests test_games/easy/14242770.game
 
-pattern patterns:
+
+watch:
+	watch -n 0 -c -d ./run_estimator_tests  \
+		test_games/no_removals/*.game \
+		test_games/patterns/*.game \
+		test_games/easy/*.game \
+		test_games/mid/*.game \
+		test_games/hard/*.game \
+		test_games/really_hard/*.game
+
+
+
+pattern patterns: build
 	./run_estimator_tests test_games/patterns/*.game
 
 
