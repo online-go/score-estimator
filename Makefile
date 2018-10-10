@@ -4,8 +4,8 @@ CXX=g++
 # Threads actually seem to slow things down a lot, at least on my machine, even
 # with just 2 threads. So by default lets not use them, but I'm keeping it easy
 # to toggle it on in case something illuminates why this would be.
-#CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=1 -lpthread
-CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=0
+CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=1 -lpthread
+#CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=0
 
 EMCC_FLAGS=-s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" --memory-init-file 0
 

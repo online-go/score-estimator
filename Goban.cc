@@ -22,9 +22,27 @@ Goban::Goban(int width, int height)
     , board(width, height) 
     , global_visited(width, height) 
     , last_visited_counter(1)
+#if USE_THREADS
+    , rand(::rand())
+#endif
 {
     default_grid_width = width;
     default_grid_height = height;
+}
+
+Goban::Goban(const Goban &other) {
+    this->width = other.width;
+    this->height = other.height;
+    this->board = other.board;
+    this->do_ko_check = other.do_ko_check;
+    this->possible_ko = other.possible_ko;
+
+    this->global_visited = other.global_visited;
+    this->last_visited_counter = other.last_visited_counter;
+
+#if USE_THREADS
+    rand = std::mt19937(::rand());
+#endif
 }
 
 void Goban::setBoardSize(int width, int height) {

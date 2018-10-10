@@ -4,6 +4,9 @@
 #include "Point.h"
 #include "Vec.h"
 #include "Grid.h"
+#if USE_THREADS
+#  include <random>
+#endif
 
 class Goban {
     public:
@@ -22,7 +25,12 @@ class Goban {
         Grid      global_visited;
         int       last_visited_counter;
 
+#if USE_THREADS
+        std::mt19937 rand;
+#endif
+
         Goban(int width, int height);
+        Goban(const Goban &other);
         void setBoardSize(int width, int height); 
         Grid estimate(Color player_to_move, int trials, float tolerance, bool debug) const;
         Point generateMove(Color player, int trials, float tolerance);
@@ -110,6 +118,8 @@ class Goban {
         bool is_safe_horseshoe(Point move, Color player) const; // u shape but not eye, without opponents in enough corners to be dangerous
         bool is_territory(Point pt, Color player) ;
         void fill_territory(Point pt, Color player);
+
+
 #if 0
         void synchronize_tracking_counters(Grid &track, Goban &visited, Point &p);
 #endif

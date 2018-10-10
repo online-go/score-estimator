@@ -112,7 +112,7 @@ int main(int argn, const char *args[]) {
         }
 
 #if USE_THREADS
-        results.push_back(tp.enqueue([args, arg, trials, tolerance]() -> Result {
+        results.push_back(tp.enqueue([args, arg, trials, tolerance, num_boards]() -> Result {
 #endif
 
             FILE *fp = fopen(args[arg], "r");
