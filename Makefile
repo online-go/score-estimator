@@ -7,7 +7,7 @@ CXX=g++
 CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=1 -lpthread
 #CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=0
 
-EMCC_FLAGS=-s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" --memory-init-file 0
+EMCC_FLAGS=--std=c++14 -s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" --memory-init-file 0
 
 all build: run_estimator_tests
 
@@ -20,7 +20,7 @@ quick: build
 
 
 watch:
-	watch -n 0 -c -d ./run_estimator_tests  \
+	watch -n 0.5 -c -d ./run_estimator_tests  \
 		test_games/no_removals/*.game \
 		test_games/patterns/*.game \
 		test_games/easy/*.game \

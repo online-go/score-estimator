@@ -180,6 +180,17 @@ class TGrid {
             return ret;
         }
 
+        /* Returns a Vec containing all the points in group which are not equal to value */
+        Vec notMatch(const Vec &group, const T &value) const {
+            Vec ret;
+            for (int i=0; i < group.size; ++i) {
+                if (at(group[i]) != value) {
+                    ret.push(group[i]);
+                }
+            }
+            return ret;
+        }
+
         /* Returns the maximum or minimum value of all points within the
          * provided group, whichever has the greatest magnitude */
         T minmax(const Vec &group) const {

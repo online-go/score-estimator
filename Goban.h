@@ -43,7 +43,6 @@ class Goban {
         void play_out_position(Color player_to_move, const Grid &life_map, const Grid &seki);
         Result place_and_remove(Point move, Color player, Vec &possible_moves);
 
-
         /* Looks for probable seki situations and returns them as a binary grid */
         Grid scanForSeki(int num_iterations, float tolerance, const Grid &rollout_pass) const;
 

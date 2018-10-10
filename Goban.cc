@@ -1,20 +1,23 @@
 /* vim: set tabstop=4 expandtab */
 #include "Goban.h"
 #include "log.h"
+#include <set>
+
 #ifndef EMSCRIPTEN
 #  include <string.h>
 #  include <stdlib.h>
 #  include <stdio.h>
 #endif
+
 #ifdef DEBUG
 #  include <stdio.h>
 #  include <ctype.h>
 #  include <stdlib.h>
 #  include <iostream>
 
-using namespace std; 
 #endif
 
+using namespace std; 
 
 Goban::Goban(int width, int height) 
     : width(width)
@@ -86,12 +89,14 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
     //Grid seki = scanForSeki(num_iterations, tolerance, seki_pass);
     Grid seki = scanForSeki(num_iterations, 0.2, seki_pass);
 
+#ifndef EMSCRIPTEN
     if (debug) {
         printf("\nSeki pass:\n");
         seki_pass.printInts(" %6d", "      ");
         printf("\nSeki:\n");
         seki.printInts();
     }
+#endif
 
     Grid horseshoe_bias;
 
@@ -130,22 +135,19 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
     //bias += (seki * board) * (int)(num_iterations * tolerance) * 2;
 
     Grid liberty_bias = biasLibertyMap(num_iterations, tolerance, liberty_map);
-    bias += liberty_bias;
+    //bias += liberty_bias;
 
     Grid likely_dead = biasLikelyDead(num_iterations, tolerance, liberty_map);
-    bias += likely_dead;
+    //bias += likely_dead;
 
     bias += horseshoe_bias;
 
     tolerance /= tolerance_scale ;
 
-
     //bias.clear();
     //territory_map.clear();
     //liberty_map.clear();
     //strong_life.clear();
-
-
 
 
 #ifndef EMSCRIPTEN
@@ -262,8 +264,8 @@ Grid Goban::biasLibertyMap(int num_iterations, float tolerance, const Grid &libe
             liberty_map.getNeighbors(p, neighbors);
 
             int sum = liberty_map[p] + liberty_map.sum(neighbors);
-            //ret[p] = (sum * (num_iterations * tolerance)) / 100;
-            ret[p] = 0;
+            ret[p] = (sum * (num_iterations * tolerance)) / 100;
+            //ret[p] = 0;
             /*
 
             if (board[p] == 0 && liberty_map[p] > 6) {
@@ -754,7 +756,7 @@ void Goban::play_out_position(Color player_to_move, const Grid &life_map, const 
                     break;
                 }
                 passed = true;
-                possible_moves.append(illegal_moves);
+                possible_moves += illegal_moves;
                 illegal_moves.size = 0;
                 player_to_move = (Color)-player_to_move;
             }
@@ -767,7 +769,7 @@ void Goban::play_out_position(Color player_to_move, const Grid &life_map, const 
             passed = false;
             possible_moves.remove(move_idx);
             player_to_move = (Color)-player_to_move;
-            possible_moves.append(illegal_moves);
+            possible_moves += illegal_moves;
             illegal_moves.size = 0;
             continue;
         }
@@ -779,7 +781,7 @@ void Goban::play_out_position(Color player_to_move, const Grid &life_map, const 
                     break;
                 }
                 passed = true;
-                possible_moves.append(illegal_moves);
+                possible_moves += illegal_moves;
                 illegal_moves.size = 0;
                 player_to_move = (Color)-player_to_move;
             }

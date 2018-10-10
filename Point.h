@@ -15,6 +15,7 @@ class Point {
 
         bool operator==(const Point &p) const { return x == p.x && y == p.y; }
         bool operator!=(const Point &p) const { return x != p.x || y != p.y; }
+        bool operator<(const Point &p) const { return y == p.y ? x < p.x : y < p.y; }
 };
 
 

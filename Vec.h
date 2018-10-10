@@ -30,7 +30,7 @@ class Vec {
             points[idx] = points[--size];
             return ret;
         }
-        Vec& append(const Vec &o) {
+        Vec& operator+=(const Vec &o) {
             for (int i=0; i < o.size; ++i) {
                 push(o[i]);
             }
