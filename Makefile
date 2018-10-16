@@ -1,4 +1,4 @@
-VERSION=0.6.1
+VERSION=0.6.2
 CXX=g++
 
 # Threads actually seem to slow things down a lot, at least on my machine, even
@@ -7,7 +7,7 @@ CXX=g++
 CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=1 -lpthread
 #CXXFLAGS=-O3 -g3 -Wall --pedantic --std=c++14 -DDEBUG=1 -DUSE_THREADS=0
 
-EMCC_FLAGS=--std=c++14 -s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']" --memory-init-file 0 -s WASM=0 
+EMCC_FLAGS=--std=c++14 -s MODULARIZE=1 -s EXPORT_NAME="'OGSScoreEstimator'" -s EXPORTED_FUNCTIONS="['_estimate']" -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']" --memory-init-file 0
 
 all build: run_estimator_tests
 
@@ -60,13 +60,10 @@ js:
 	emcc $(EMCC_FLAGS) -O2 -g0 jsbindings.cc -o score_estimator.js
 
 dist:
-	emcc $(EMCC_FLAGS) -O2 -g0 jsbindings.cc -o OGSScoreEstimator-$(VERSION).js
-	@rm -f score_estimator.js.gz
-	@gzip -k score_estimator.js
-	@echo
-	@echo Uncompressed: `wc -c score_estimator.js | awk '{print $$1}'` bytes
-	@echo Compressed: `wc -c score_estimator.js.gz | awk '{print $$1}'` bytes
-	@echo
+	rm OGSScoreEstimator-*.js
+	rm OGSScoreEstimator-*.wasm
+	emcc $(EMCC_FLAGS) -s WASM=1 -O2 -g0 jsbindings.cc -o OGSScoreEstimator-$(VERSION).js
+	emcc $(EMCC_FLAGS) -s WASM=0 -O2 -g0 jsbindings.cc -o OGSScoreEstimator-$(VERSION).asm.js
 
 run_estimator_tests: *.cc *.h Makefile
 	$(CXX) $(CXXFLAGS) main.cc Goban.cc -o run_estimator_tests
