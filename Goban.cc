@@ -647,7 +647,7 @@ Vec Goban::getFalseEyes() const {
                 board.getNeighbors(p, neighbors);
                 board.getCornerPoints(p, corners);
 
-                if (corners.size == 1) {
+                if (board.getMinLibertiesOfSurroundingGroups(p) > 1) {
                     continue;
                 }
 
@@ -946,7 +946,7 @@ bool Goban::is_eye(Point pt, Color player) const {
 #if 1
         Vec corners;
         board.getCornerPoints(pt, corners);
-        if (corners.size > 1 && board.countEqual(corners, -player) >= (corners.size >> 1)) {
+        if (board.countEqual(corners, -player) >= (corners.size >> 1) && board.getMinLibertiesOfSurroundingGroups(pt) <= 1) {
             /* False eye */
             return false;
         }
@@ -965,7 +965,7 @@ bool Goban::is_safe_horseshoe(Point pt, Color player) const {
         Vec corners;
         board.getCornerPoints(pt, corners);
 
-        if (board.countEqual(corners, -player) >= (corners.size >> 1)) {
+        if (board.countEqual(corners, -player) >= (corners.size >> 1) && board.getMinLibertiesOfSurroundingGroups(pt) <= 1) {
             /* Looks like a false eye, or very close to it */
             return false;
         }

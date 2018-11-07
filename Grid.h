@@ -379,6 +379,25 @@ class TGrid {
             return total;
         }
 
+        /* Counts the liberties of all neighboring groups, returns the minimum liberty count */
+        int getMinLibertiesOfSurroundingGroups(const Point &pt) const {
+            Vec neighbors;
+            getNeighbors(pt, neighbors);
+
+            int ret = 99999;
+
+            for (int i=0; i < neighbors.size; ++i) {
+                Vec group;
+                Vec group_neighbors;
+                groupAndNeighbors(neighbors[i], group, group_neighbors);
+
+                int liberties = countEqual(group_neighbors, 0);
+                ret = ret < liberties ? ret : liberties;
+            }
+
+            return ret;
+        }
+
     private:
         T   _data[MAX_H][MAX_W];
 
