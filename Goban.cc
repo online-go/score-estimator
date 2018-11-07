@@ -946,7 +946,7 @@ bool Goban::is_eye(Point pt, Color player) const {
 #if 1
         Vec corners;
         board.getCornerPoints(pt, corners);
-        if (board.countEqual(corners, -player) >= (corners.size >> 1)) {
+        if (corners.size > 1 && board.countEqual(corners, -player) >= (corners.size >> 1)) {
             /* False eye */
             return false;
         }
