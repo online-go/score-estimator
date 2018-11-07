@@ -47,7 +47,7 @@ int main(int argn, const char *args[]) {
     int trials = 1000;
     //float tolerance = 0.30f;
     //float tolerance = 0.20f;
-    float tolerance = 0.35f;
+    float tolerance = 0.40f;
 
     if (argn < 2) {
         fprintf(stderr, "Usage: estimator <file.game> ...\n");
