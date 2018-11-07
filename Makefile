@@ -1,4 +1,4 @@
-VERSION=0.6.2
+VERSION=0.7.0
 CXX=g++
 
 # Threads actually seem to slow things down a lot, at least on my machine, even
