@@ -275,6 +275,13 @@ class TGrid {
             }
         }
 
+        /* Adds a value to all points in group */
+        void add(const Vec &group, const T &value) {
+            for (int i=0; i< group.size; ++i) {
+                (*this)[group[i]] += value;
+            }
+        }
+
         /* Returns true if all points in the provided group have the given value*/
         bool allEqualTo(const Vec &group, const T &value) const {
             for (int i=0; i< group.size; ++i) {

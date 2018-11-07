@@ -109,14 +109,14 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
                 //if (debug) { NOTE << p << " was horseshoe" << endl; }
                 for (int i=0; i< neighbors.size; ++i) {
                     Vec gr = board.group(neighbors[i]);
-                    horseshoe_bias.set(gr, 1);
+                    horseshoe_bias.add(gr, 1);
                 }
             }
         }
     }
 
     horseshoe_bias *= board;
-    horseshoe_bias *= (num_iterations * (tolerance / 2));
+    horseshoe_bias *= (num_iterations * (tolerance / 4));
 
 
     Grid ret;
@@ -134,10 +134,10 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
 
     //bias += (seki * board) * (int)(num_iterations * tolerance) * 2;
 
-    Grid liberty_bias = biasLibertyMap(num_iterations, tolerance, liberty_map);
+    //Grid liberty_bias = biasLibertyMap(num_iterations, tolerance, liberty_map);
     //bias += liberty_bias;
 
-    Grid likely_dead = biasLikelyDead(num_iterations, tolerance, liberty_map);
+    //Grid likely_dead = biasLikelyDead(num_iterations, tolerance, liberty_map);
     //bias += likely_dead;
 
     bias += horseshoe_bias;
@@ -155,11 +155,11 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
         printf("\nHorseshoe bias:\n");
         horseshoe_bias.printInts();
 
-        printf("\nLikely dead:\n");
-        likely_dead.printInts();
+        //printf("\nLikely dead:\n");
+        //likely_dead.printInts();
 
-        printf("\nLiberty bias:\n");
-        liberty_bias.printInts();
+        //printf("\nLiberty bias:\n");
+        //liberty_bias.printInts();
 
         printf("\nBias map:\n");
         bias.printInts(" %5d", "     ");
@@ -940,8 +940,6 @@ int  Goban::remove_group(Point move, Vec &possible_moves) {
     return n_removed;;
 }
 bool Goban::would_self_atari(Point pt, Color player) const {
-    return false; 
-
     Vec neighbors;
     board.getNeighbors(pt, neighbors);
 
