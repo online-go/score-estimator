@@ -126,7 +126,8 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
     tolerance *= tolerance_scale;
     //Grid bias = computeBias(num_iterations, tolerance);
 
-    Grid bias = computeBias(num_iterations, tolerance);
+    //Grid bias = computeBias(num_iterations, tolerance);
+    Grid bias;
     Grid territory_map = computeTerritory();
     Grid group_map = computeGroupMap();
     Grid liberty_map = computeLiberties(group_map);
@@ -139,6 +140,7 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
 
     //Grid likely_dead = biasLikelyDead(num_iterations, tolerance, liberty_map);
     //bias += likely_dead;
+    //bias.clear();
 
     bias += horseshoe_bias;
 
@@ -216,7 +218,15 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
                 ret[y][x] = -1;
             /* if that fails, it's probably just dame */
             } else {
-                ret[y][x] = 0;
+                if (board[y][x]) {
+                    if (abs(pass1[y][x]) < num_iterations * tolerance / 3) {
+                        ret[y][x] = 0;
+                    } else {
+                        ret[y][x] = pass1[y][x] > 0 ? 1 : -1;
+                    }
+                } else {
+                    ret[y][x] = 0;
+                }
             }
         }
     }
