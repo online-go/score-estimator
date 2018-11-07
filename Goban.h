@@ -114,6 +114,7 @@ class Goban {
         bool has_liberties(const Point &pt);
         int  remove_group(Point move, Vec &possible_moves);
         bool is_eye(Point move, Color player) const;
+        bool would_self_atari(Point move, Color player) const;
         bool is_safe_horseshoe(Point move, Color player) const; // u shape but not eye, without opponents in enough corners to be dangerous
         bool is_territory(Point pt, Color player) ;
         void fill_territory(Point pt, Color player);

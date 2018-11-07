@@ -111,13 +111,20 @@ class TGrid {
         /* Flood matches all similar values starting at starting_point, writing all points
          * within the flood match to group, and all neighboring points to neighbors */
         void groupAndNeighbors(const Point &starting_point, Vec &group, Vec &out_neighbors) const {
+            Vec starting_points;
+            starting_points.push(starting_point);
+            groupAndNeighbors(starting_points, group, out_neighbors);
+        }
+        void groupAndNeighbors(const Vec &starting_points, Vec &group, Vec &out_neighbors) const {
             Vec         tocheck;
             Vec         neighbors;
             TGrid<int>  visited(width, height);
-            T           matching_value = (*this)[starting_point];
+            T           matching_value = (*this)[starting_points[0]];
 
-            tocheck.push(starting_point);
-            visited[starting_point] = 1;
+            for (int i=0; i < starting_points.size; ++i) {
+                tocheck.push(starting_points[i]);
+                visited[starting_points[i]] = 1;
+            }
 
             while (tocheck.size) {
                 Point p = tocheck.remove(0);
@@ -125,7 +132,7 @@ class TGrid {
                     group.push(p);
                     getNeighbors(p, neighbors);
                     for (int i=0; i < neighbors.size; ++i) {
-                        Point neighbor = neighbors[i];
+                        const Point &neighbor = neighbors[i];
                         if (visited[neighbor]) {
                             continue;
                         }
@@ -136,6 +143,46 @@ class TGrid {
                     out_neighbors.push(p);
                 }
             }
+        }
+
+        /* returns true if the sum of all liberties of all groups (if they were
+         * treated as one big group) touching the starting points is less than
+         * the given amount. */
+        bool hasLessLibertiesThan(const Vec &starting_points, int amount) const {
+            Vec         tocheck;
+            Vec         neighbors;
+            TGrid<int>  visited(width, height);
+            T           matching_value = (*this)[starting_points[0]];
+            int         total_liberties = 0;
+
+            for (int i=0; i < starting_points.size; ++i) {
+                tocheck.push(starting_points[i]);
+                visited[starting_points[i]] = 1;
+            }
+
+            while (tocheck.size) {
+                Point p = tocheck.remove(0);
+                getNeighbors(p, neighbors);
+                for (int i=0; i < neighbors.size; ++i) {
+                    const Point &neighbor = neighbors[i];
+                    if (visited[neighbor]) {
+                        continue;
+                    }
+                    visited[neighbor] = 1;
+
+                    int v = (*this)[neighbor];
+                    if (v == matching_value) {
+                        tocheck.push(neighbor);
+                    } else if (v == 0) {
+                        ++total_liberties;
+                        if (total_liberties >= amount) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
         }
 
         /* Flood matches all similar values starting at starting_point, writing all points

@@ -178,6 +178,7 @@ Grid Goban::_estimate(Color player_to_move, int num_iterations, float tolerance,
     int pass1_iterations = num_iterations;
     //Grid pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
     //pass1 = rollout(pass1_iterations, player_to_move, strong_life, bias);
+    //pass1 = rollout(pass1_iterations, player_to_move, true, strong_life, bias, seki);
     pass1 = rollout(pass1_iterations, player_to_move, true, strong_life, bias, seki);
     Vec dead = getDead(pass1_iterations, tolerance, pass1);
 
@@ -329,7 +330,7 @@ Grid Goban::scanForSeki(int num_iterations, float tolerance, const Grid &rollout
             for (int color : { BLACK , WHITE }) {
                 int other = - color;
 
-                if (board[p] == color && rollout_pass.allLTE(group, num_iterations * tolerance) && rollout_pass.allGTE(group, 1)) {
+                if (board[p] == color && rollout_pass.allAbsLTE(group, num_iterations * tolerance)) {
                     Vec neighboring = board.match(neighbors, other);
                     int my_liberties = board.countEqual(neighbors, EMPTY);
 
@@ -340,7 +341,7 @@ Grid Goban::scanForSeki(int num_iterations, float tolerance, const Grid &rollout
                     if (rollout_pass.anyAbsLTE(neighboring, num_iterations * tolerance)) {
                         int in_seki = true;
 
-                        for (int i=0; i <  neighboring.size; ++i) {
+                        for (int i=0; i < neighboring.size; ++i) {
 
                             if (abs(rollout_pass[neighboring[i]]) < num_iterations * tolerance) {
                                 Vec neighbor_group, neighbor_neighbors;
@@ -748,6 +749,7 @@ void Goban::play_out_position(Color player_to_move, const Grid &life_map, const 
         int move_idx = rand() % possible_moves.size;
         Point mv(possible_moves[move_idx]);
 
+        //if (is_eye(mv, player_to_move) || would_self_atari(mv, player_to_move)) { /* checking for self atari prevents snapback, which messes up a lot of games */
         if (is_eye(mv, player_to_move)) {
             illegal_moves.push(possible_moves.remove(move_idx));
 
@@ -936,6 +938,40 @@ int  Goban::remove_group(Point move, Vec &possible_moves) {
     }
 
     return n_removed;;
+}
+bool Goban::would_self_atari(Point pt, Color player) const {
+    return false; 
+
+    Vec neighbors;
+    board.getNeighbors(pt, neighbors);
+
+    if (board.countEqual(neighbors, 0) ) {
+        return false;
+    }
+
+    for (int i=0; i < neighbors.size; ++i) {
+        if (board[neighbors[i]] == -player) {
+            Vec group, group_neighbors;
+            board.groupAndNeighbors(neighbors[i], group, group_neighbors);
+            if (board.countEqual(group_neighbors, 0) <= 1) { /* will capture this group */
+                return false;
+            }
+        }
+    }
+
+    Vec connected_group_surrounding_points;
+    Vec groups_connecting;
+    for (int i=0; i < neighbors.size; ++i) {
+        if (board[neighbors[i]] == player) {
+            groups_connecting.push(neighbors[i]);
+        }
+    }
+    groups_connecting.push(pt);
+    if (board.hasLessLibertiesThan(groups_connecting, 2)) {
+        return true;
+    }
+
+    return false;
 }
 bool Goban::is_eye(Point pt, Color player) const {
     if ((pt.x == 0        || board[pt.y][pt.x-1] == player) &&
