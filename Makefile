@@ -59,6 +59,9 @@ js-debug:
 js:
 	emcc $(EMCC_FLAGS) -O2 -g0 jsbindings.cc -o score_estimator.js
 
+so:
+	$(CXX) $(CXXFLAGS) jsbindings.cc -fPIC --shared -o score_estimator.so
+
 dist:
 	rm OGSScoreEstimator-*.js
 	rm OGSScoreEstimator-*.wasm
